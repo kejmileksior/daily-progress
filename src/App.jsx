@@ -326,8 +326,9 @@ function App() {
       return migrated
     }
 
-    localStorage.setItem('task-definitions', JSON.stringify(initialTasks))
-    return initialTasks
+    const normalizedInitialTasks = initialTasks.map(normalizeTask)
+    localStorage.setItem('task-definitions', JSON.stringify(normalizedInitialTasks))
+    return normalizedInitialTasks
   })
 
   const getTasksForToday = (definitions, savedTasks = null) => {
@@ -960,7 +961,11 @@ function App() {
 
         <div className="task-xp-wrap">
           <div className="task-xp">+{task.xp} XP</div>
-          {task.type === 'counter' && <small>bonus +{Math.max(0, task.bonusXp - task.xp)}</small>}
+          {task.type === 'counter' && (
+            <small>
+              bonus +{Math.max(0, (Number(task.bonusXp) || 0) - (Number(task.xp) || 0))}
+            </small>
+          )}
         </div>
       </div>
     )
