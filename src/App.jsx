@@ -501,14 +501,6 @@ function App() {
   }, [rewardQueue, activeReward])
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js').catch(() => {})
-      })
-    }
-  }, [])
-
-  useEffect(() => {
     safeSetJson('task-definitions', taskDefinitions)
   }, [taskDefinitions])
 
