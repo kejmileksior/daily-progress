@@ -1,8 +1,12 @@
-const CACHE_NAME = 'daily-app-v1'
+const CACHE_NAME = 'daily-app-v2'
+
+const getAppUrl = (path = '') => {
+  return new URL(path, self.registration.scope).href
+}
 
 const FILES_TO_CACHE = [
-  '/',
-  '/index.html',
+  getAppUrl(),
+  getAppUrl('index.html'),
 ]
 
 self.addEventListener('install', (event) => {
@@ -35,7 +39,7 @@ self.addEventListener('fetch', (event) => {
       return (
         cachedResponse ||
         fetch(event.request).catch(() => {
-          return caches.match('/index.html')
+          return caches.match(getAppUrl('index.html'))
         })
       )
     })
