@@ -366,6 +366,7 @@ function App() {
   })
 
   const [activePage, setActivePage] = useState('today')
+  const [uiScale, setUiScale] = useState(() => localStorage.getItem('ui-scale') || 'medium')
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [editingTaskId, setEditingTaskId] = useState(null)
 
@@ -411,6 +412,10 @@ function App() {
   const [rewardQueue, setRewardQueue] = useState([])
   const [activeReward, setActiveReward] = useState(null)
   const [confetti, setConfetti] = useState([])
+
+  useEffect(() => {
+    localStorage.setItem('ui-scale', uiScale)
+  }, [uiScale])
 
   useEffect(() => {
     if (activeReward || rewardQueue.length === 0) return
@@ -1390,6 +1395,26 @@ function App() {
         <p className="date">Ustaw zadania, XP i priorytety.</p>
       </div>
 
+      <div className="settings-block appearance-settings">
+        <div className="settings-block-header">
+          <div>
+            <h2>Wygląd aplikacji 📐</h2>
+            <p>Zmień wielkość ikon, tekstów i elementów interfejsu.</p>
+          </div>
+        </div>
+        <div className="ui-scale-options" role="group" aria-label="Wielkość interfejsu">
+          <button className={uiScale === 'small' ? 'selected' : ''} onClick={() => setUiScale('small')}>
+            <span>ᵃ</span><strong>Mały</strong><small>więcej na ekranie</small>
+          </button>
+          <button className={uiScale === 'medium' ? 'selected' : ''} onClick={() => setUiScale('medium')}>
+            <span>ᵃᵃ</span><strong>Średni</strong><small>domyślny</small>
+          </button>
+          <button className={uiScale === 'large' ? 'selected' : ''} onClick={() => setUiScale('large')}>
+            <span>ᵃᵃᵃ</span><strong>Duży</strong><small>większe elementy</small>
+          </button>
+        </div>
+      </div>
+
       <div className="settings-block">
         <div className="settings-block-header">
           <div><h2>Moje zadania</h2><p>Na głównej pokazujemy maksymalnie 5 priorytetów.</p></div>
@@ -1752,7 +1777,7 @@ function App() {
   if (activePage === 'goals') content = renderGoals()
 
   return (
-    <div className="app">
+    <div className={`app ui-scale-${uiScale}`}>
       <main className="container">
         {content}
 

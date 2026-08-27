@@ -20,10 +20,7 @@ button { -webkit-tap-highlight-color: transparent; }
   max-width: 560px;
   min-height: 100vh;
   margin: 0 auto;
-  padding-top: max(28px, calc(env(safe-area-inset-top) + 18px));
-  padding-right: 18px;
-  padding-bottom: calc(110px + env(safe-area-inset-bottom));
-  padding-left: 18px;
+  padding: 28px 18px 110px;
 }
 
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
@@ -178,22 +175,16 @@ h2 { margin: 0; }
 .save-task-button { width: 100%; padding: 13px; border: 0; border-radius: 12px; background: #9b6cff; color: #fff; font-weight: 800; cursor: pointer; }
 
 @media (max-width: 430px) {
-  .container {
-    padding-top: max(24px, calc(env(safe-area-inset-top) + 14px));
-    padding-right: 13px;
-    padding-left: 13px;
-  }
+  .container { padding-right: 13px; padding-left: 13px; }
   h1 { font-size: 30px; }
   .header-stats { gap: 6px; }
-  .mini-stat { min-width: 78px; padding: 10px 8px; }
+  .mini-stat { min-width: 62px; padding: 8px 7px; }
   .rank-card { align-items: flex-start; flex-direction: column; }
   .rank-progress-wrap { width: 100%; text-align: left; }
   .rank-bar { margin-top: 7px; }
   .task-xp { display: none; }
   .bottom-nav { gap: 0; }
-  .nav-item { min-width: 64px; padding-bottom: 7px; }
-  .nav-item span { font-size: 19px; }
-  .nav-item small { font-size: 10px; }
+  .nav-item { min-width: 61px; }
 }
 
 /* Nagroda XP + confetti */
@@ -1094,260 +1085,77 @@ h2 { margin: 0; }
 .backup-message { margin: 10px 0 0; color: #bda6ff; font-size: 10px; }
 
 
-/* =========================================================
-   iPHONE / SAFE AREA / MOBILE POLISH
-   Naprawa Dynamic Island + większe elementy na telefonach
-   ========================================================= */
+/* WYGLĄD — wybór wielkości interfejsu */
+.ui-scale-small { --ui-scale: .90; }
+.ui-scale-medium { --ui-scale: 1; }
+.ui-scale-large { --ui-scale: 1.08; }
 
-html {
-  min-height: 100%;
-  background: #08080c;
+/* Skala całej aplikacji działa również na iPhone/Safari. */
+.app.ui-scale-small,
+.app.ui-scale-medium,
+.app.ui-scale-large {
+  zoom: var(--ui-scale);
 }
 
-body {
-  min-height: 100%;
-  overflow-x: hidden;
+.appearance-settings { margin-bottom: 13px; }
+.ui-scale-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ui-scale-options button {
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid #35353f;
+  border-radius: 13px;
+  background: #202027;
+  color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.ui-scale-options button:hover { border-color: #6f4cc2; }
+.ui-scale-options button.selected {
+  border-color: #9b6cff;
+  background: #2a2141;
+  box-shadow: 0 0 0 1px rgba(155,108,255,.25);
+}
+.ui-scale-options button span,
+.ui-scale-options button strong,
+.ui-scale-options button small { display: block; }
+.ui-scale-options button span {
+  margin-bottom: 5px;
+  color: #b58aff;
+  font-size: 18px;
+  line-height: 1;
+}
+.ui-scale-options button strong { font-size: 11px; }
+.ui-scale-options button small {
+  margin-top: 3px;
+  color: #777783;
+  font-size: 8px;
 }
 
-#root {
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-.app {
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
+/* Bezpieczna strefa iPhone — Dynamic Island / status bar */
 .container {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-top: max(28px, calc(env(safe-area-inset-top) + 18px));
+  padding-top: calc(28px + env(safe-area-inset-top));
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
 }
-
-/* Większy i wygodniejszy header */
-.header {
-  gap: 12px;
-}
-
-.header-stats {
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.mini-stat {
-  min-width: 82px;
-  min-height: 82px;
-  padding: 11px 9px;
-  border-radius: 17px;
-}
-
-.mini-stat span {
-  font-size: 23px;
-}
-
-.mini-stat strong {
-  font-size: 19px;
-}
-
-.mini-stat small {
-  font-size: 10px;
-}
-
-/* Karty zadań */
-.task {
-  min-height: 82px;
-  padding: 16px;
-  border-radius: 20px;
-}
-
-.task-icon {
-  width: 52px;
-  height: 52px;
-  flex-basis: 52px;
-  border-radius: 15px;
-  font-size: 24px;
-}
-
-.task-content {
-  margin-left: 14px;
-}
-
-.task-category {
-  font-size: 10px;
-}
-
-.task-title {
-  font-size: 17px;
-}
-
-.task-description {
-  font-size: 11px;
-}
-
-.counter {
-  gap: 8px;
-  margin-top: 11px;
-}
-
-.counter-button {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  font-size: 18px;
-}
-
-.counter-value strong {
-  font-size: 18px;
-}
-
-.counter-value span {
-  font-size: 10px;
-}
-
-.checkbox {
-  width: 34px;
-  height: 34px;
-  flex-basis: 34px;
-  border-radius: 10px;
-  font-size: 17px;
-}
-
-/* Dolna nawigacja + obszar gestów iPhone'a */
 .bottom-nav {
-  padding-top: 10px;
   padding-bottom: calc(17px + env(safe-area-inset-bottom));
 }
 
-.nav-item {
-  min-width: 64px;
-  padding: 6px 8px;
-}
-
-.nav-item span {
-  font-size: 19px;
-}
-
-.nav-item small {
-  font-size: 10px;
-}
-
-/* Nie pozwól headerowi wypchnąć statystyk poza ekran */
 @media (max-width: 430px) {
-  .container {
-    padding-top: max(24px, calc(env(safe-area-inset-top) + 14px));
-    padding-right: 13px;
-    padding-left: 13px;
-  }
-
-  .header {
-    align-items: flex-start;
-  }
-
-  h1 {
-    font-size: 30px;
-  }
-
-  .header-stats {
-    gap: 6px;
-  }
-
-  .mini-stat {
-    min-width: 74px;
-    min-height: 74px;
-    padding: 9px 7px;
-  }
-
-  .mini-stat span {
-    font-size: 21px;
-  }
-
-  .mini-stat strong {
-    font-size: 18px;
-  }
-
-  .task {
-    min-height: 78px;
-    padding: 14px;
-  }
-
-  .task-icon {
-    width: 48px;
-    height: 48px;
-    flex-basis: 48px;
-    font-size: 22px;
-  }
-
-  .task-content {
-    margin-left: 12px;
-  }
-
-  .task-title {
-    font-size: 16px;
-  }
-
-  .task-description {
-    font-size: 10px;
-  }
-
-  .checkbox {
-    width: 32px;
-    height: 32px;
-    flex-basis: 32px;
-  }
-
-  .bottom-nav {
-    gap: 0;
-  }
-
-  .nav-item {
-    min-width: 61px;
-  }
+  .ui-scale-large .container { padding-right: 10px; padding-left: 10px; }
+  .ui-scale-large .header { gap: 9px; }
+  .ui-scale-large .header-stats { gap: 4px; }
+  .ui-scale-large .mini-stat { min-width: 58px; }
+  .ui-scale-large .nav-item { min-width: 58px; padding-left: 4px; padding-right: 4px; }
+  .ui-scale-large .nav-item span { font-size: 15px; }
 }
 
-/* Bardzo wąskie ekrany */
 @media (max-width: 360px) {
-  .header-stats {
-    gap: 4px;
-  }
-
-  .mini-stat {
-    min-width: 64px;
-    min-height: 70px;
-    padding: 8px 5px;
-  }
-
-  .mini-stat span {
-    font-size: 19px;
-  }
-
-  .mini-stat strong {
-    font-size: 16px;
-  }
-
-  .task {
-    padding: 12px;
-  }
-
-  .task-icon {
-    width: 44px;
-    height: 44px;
-    flex-basis: 44px;
-    font-size: 20px;
-  }
-
-  .task-content {
-    margin-left: 10px;
-  }
-
-  .task-title {
-    font-size: 15px;
-  }
-
-  .checkbox {
-    width: 30px;
-    height: 30px;
-    flex-basis: 30px;
-  }
+  .ui-scale-options { gap: 5px; }
+  .ui-scale-options button { padding: 10px 5px; }
+  .ui-scale-options button small { font-size: 7px; }
 }
