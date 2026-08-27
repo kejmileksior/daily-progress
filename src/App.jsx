@@ -99,14 +99,14 @@ const initialTasks = [
   {
     id: 1,
     title: 'Shorty',
-    description: 'Nagraj 3 shorty',
+    description: 'Nagraj 5 shortów',
     category: 'YouTube',
     emoji: '🎬',
     type: 'counter',
-    minimumTarget: 1,
-    target: 3,
+    minimumTarget: 3,
+    target: 5,
     bonusTarget: 5,
-    minimumXp: 10,
+    minimumXp: 0,
     unit: 'shortów',
     step: 1,
     value: 0,
@@ -197,7 +197,32 @@ function getDayOfWeek(date = new Date()) {
   return date.getDay()
 }
 
-function normalizeTask(task) {
+function safeParseJson(value, fallback = null) {
+  if (value == null || value === '') return fallback
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+function safeGetJson(key, fallback = null) {
+  try {
+    return safeParseJson(localStorage.getItem(key), fallback)
+  } catch {
+    return fallback
+  }
+}
+
+function safeSetJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Storage może być niedostępny albo pełny. Aplikacja nadal działa w pamięci.
+  }
+}
+
+function normalizeTask(task = {}) {
   const isCheckbox = task.type === 'checkbox'
   const target = Math.max(1, Number(task.target) || 1)
   const minimumTarget = isCheckbox
@@ -209,7 +234,7 @@ function normalizeTask(task) {
   const xp = Math.max(5, Number(task.xp) || 25)
   const minimumXp = isCheckbox
     ? xp
-    : Math.max(1, Math.min(xp, Number(task.minimumXp) || 10))
+    : Math.max(0, Math.min(xp, Number.isFinite(Number(task.minimumXp)) ? Number(task.minimumXp) : 10))
   const bonusXp = isCheckbox
     ? xp
     : Math.max(xp, Number(task.bonusXp) || Math.max(xp, 50))
@@ -230,7 +255,7 @@ function normalizeTask(task) {
 }
 
 function normalizeXpDay(value) {
-  if (!value || value.version !== XP_DATA_VERSION) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== XP_DATA_VERSION) {
     return {
       version: XP_DATA_VERSION,
       rewardsByTask: {},
@@ -312,28 +337,30 @@ function App() {
   const storageKey = `daily-tasks-${todayKey}`
 
   const [taskDefinitions, setTaskDefinitions] = useState(() => {
-    const savedDefinitions = localStorage.getItem('task-definitions')
+    const savedDefinitions = safeGetJson('task-definitions', null)
 
-    if (savedDefinitions) {
-      return JSON.parse(savedDefinitions).map(normalizeTask)
+    if (Array.isArray(savedDefinitions)) {
+      return savedDefinitions.map(normalizeTask)
     }
 
-    const oldDaily = localStorage.getItem(storageKey)
+    const oldDaily = safeGetJson(storageKey, null)
 
-    if (oldDaily) {
-      const migrated = JSON.parse(oldDaily).map(normalizeTask)
-      localStorage.setItem('task-definitions', JSON.stringify(migrated))
+    if (Array.isArray(oldDaily)) {
+      const migrated = oldDaily.map(normalizeTask)
+      safeSetJson('task-definitions', migrated)
       return migrated
     }
 
     const normalizedInitialTasks = initialTasks.map(normalizeTask)
-    localStorage.setItem('task-definitions', JSON.stringify(normalizedInitialTasks))
+    safeSetJson('task-definitions', normalizedInitialTasks)
     return normalizedInitialTasks
   })
 
   const getTasksForToday = (definitions, savedTasks = null) => {
     const savedMap = new Map(
-      (savedTasks || []).map((task) => [task.id, normalizeTask(task)])
+      (Array.isArray(savedTasks) ? savedTasks : [])
+        .filter((task) => task && typeof task === 'object')
+        .map((task) => [task.id, normalizeTask(task)])
     )
 
     return definitions
@@ -345,19 +372,17 @@ function App() {
   }
 
   const [tasks, setTasks] = useState(() => {
-    const savedToday = localStorage.getItem(storageKey)
-    const savedTasks = savedToday ? JSON.parse(savedToday) : null
-    return getTasksForToday(taskDefinitions, savedTasks)
+    const savedTasks = safeGetJson(storageKey, null)
+    return getTasksForToday(taskDefinitions, Array.isArray(savedTasks) ? savedTasks : null)
   })
 
   const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem('daily-history')
-    return saved ? JSON.parse(saved) : {}
+    const saved = safeGetJson('daily-history', {})
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {}
   })
 
   const [xpData, setXpData] = useState(() => {
-    const saved = localStorage.getItem(`daily-xp-${todayKey}`)
-    return saved ? normalizeXpDay(JSON.parse(saved)) : normalizeXpDay(null)
+    return normalizeXpDay(safeGetJson(`daily-xp-${todayKey}`, null))
   })
 
   const [weeklyBonusClaimed, setWeeklyBonusClaimed] = useState(() => {
@@ -366,7 +391,14 @@ function App() {
   })
 
   const [activePage, setActivePage] = useState('today')
-  const [uiScale, setUiScale] = useState(() => localStorage.getItem('ui-scale') || 'medium')
+  const [uiScale, setUiScale] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ui-scale')
+      return ['small', 'medium', 'large'].includes(saved) ? saved : 'medium'
+    } catch {
+      return 'medium'
+    }
+  })
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [editingTaskId, setEditingTaskId] = useState(null)
 
@@ -391,8 +423,8 @@ function App() {
   const [taskForm, setTaskForm] = useState(emptyTaskForm)
 
   const [goals, setGoals] = useState(() => {
-    const saved = localStorage.getItem('long-term-goals')
-    return saved ? JSON.parse(saved) : INITIAL_GOALS
+    const saved = safeGetJson('long-term-goals', null)
+    return Array.isArray(saved) ? saved : INITIAL_GOALS
   })
 
   const [showGoalModal, setShowGoalModal] = useState(false)
@@ -414,8 +446,32 @@ function App() {
   const [confetti, setConfetti] = useState([])
 
   useEffect(() => {
-    localStorage.setItem('ui-scale', uiScale)
+    try {
+      localStorage.setItem('ui-scale', uiScale)
+    } catch {}
   }, [uiScale])
+
+
+  useEffect(() => {
+    setTaskDefinitions((current) => {
+      let changed = false
+      const migrated = current.map((task) => {
+        if (task.id === 1 && task.title === 'Shorty' && task.type === 'counter' && task.target < 5) {
+          changed = true
+          return normalizeTask({
+            ...task,
+            description: 'Nagraj 5 shortów',
+            minimumTarget: 3,
+            target: 5,
+            bonusTarget: 5,
+            minimumXp: 0,
+          })
+        }
+        return normalizeTask(task)
+      })
+      return changed ? migrated : current
+    })
+  }, [])
 
   useEffect(() => {
     if (activeReward || rewardQueue.length === 0) return
@@ -453,20 +509,20 @@ function App() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('task-definitions', JSON.stringify(taskDefinitions))
+    safeSetJson('task-definitions', taskDefinitions)
   }, [taskDefinitions])
 
   useEffect(() => {
-    localStorage.setItem('long-term-goals', JSON.stringify(goals))
+    safeSetJson('long-term-goals', goals)
   }, [goals])
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(tasks))
-    localStorage.setItem(`daily-xp-${todayKey}`, JSON.stringify(xpData))
+    safeSetJson(storageKey, tasks)
+    safeSetJson(`daily-xp-${todayKey}`, xpData)
 
     setHistory((currentHistory) => {
       const updatedHistory = { ...currentHistory, [todayKey]: tasks }
-      localStorage.setItem('daily-history', JSON.stringify(updatedHistory))
+      safeSetJson('daily-history', updatedHistory)
       return updatedHistory
     })
   }, [tasks, storageKey, todayKey, xpData])
@@ -509,9 +565,7 @@ function App() {
       return total + xpData.taskXp + xpData.bonusXp
     }
 
-    const savedXp = normalizeXpDay(localStorage.getItem(`daily-xp-${dateKey}`)
-      ? JSON.parse(localStorage.getItem(`daily-xp-${dateKey}`))
-      : null)
+    const savedXp = normalizeXpDay(safeGetJson(`daily-xp-${dateKey}`, null))
 
     if (savedXp.taskXp || savedXp.bonusXp) {
       return total + savedXp.taskXp + savedXp.bonusXp
@@ -638,7 +692,9 @@ function App() {
       bonusXp: current.bonusXp + weeklyBonusXp,
     }))
     const weekKey = getWeekStartKey()
-    localStorage.setItem(`weekly-bonus-${weekKey}`, 'claimed')
+    try {
+      localStorage.setItem(`weekly-bonus-${weekKey}`, 'claimed')
+    } catch {}
     setWeeklyBonusClaimed(true)
     queueReward(weeklyBonusXp, 'Tygodniowe wyzwania ukończone!')
   }
@@ -883,7 +939,7 @@ function App() {
     const oldValue = Number(before.value) || 0
     const newValue = Math.max(
       0,
-      Math.min(before.target, oldValue + amount * step)
+      Math.min(before.bonusTarget, oldValue + amount * step)
     )
 
     if (newValue === oldValue) return
