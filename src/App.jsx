@@ -18,7 +18,7 @@ const CATEGORIES = ['YouTube', 'Zdrowie', 'Sport', 'Nauka', 'Praca', 'Inne']
 const XP_PER_TASK_DEFAULT = 25
 const IMPORTANT_BONUS_XP = 100
 const IMPORTANT_TASKS_FOR_BONUS = 5
-const XP_DATA_VERSION = 4
+const XP_DATA_VERSION = 3
 
 // Około 10 idealnych dni = jedna nowa ranga:
 // 5 ważnych zadań × 25 XP + 100 XP bonusu = 225 XP / dzień.
@@ -916,40 +916,42 @@ function App() {
 
     if (afterTier <= beforeTier) return
 
-    // Najważniejsze: stan nagród jest sprawdzany i zapisywany atomowo
-    // w updaterze setXpData. Dzięki temu ponowne kliknięcie tego samego
-    // zadania nie może przyznać XP drugi raz.
+    // WAŻNE: liczymy odebraną nagrodę z AKTUALNEGO stanu Reacta,
+    // a nie ze starego xpData z closure. Dzięki temu nawet bardzo szybkie
+    // kliknięcie odznacz/zaznacz nie może nabić XP drugi raz.
     setXpData((current) => {
-      const rewardsByTask = current.rewardsByTask || {}
-      const claimedTier = Number(rewardsByTask[after.id]) || 0
+      const currentRewards = current.rewardsByTask || {}
+      const claimedTier = Number(currentRewards[after.id]) || 0
+      const startTier = Math.max(beforeTier, claimedTier)
 
-      // Jeśli ten poziom był już kiedyś nagrodzony, nie dawaj XP ponownie.
-      if (afterTier <= claimedTier) return current
+      if (afterTier <= startTier) return current
 
-      let rewardTotal = 0
       const rewards = []
+      let rewardTotal = 0
 
-      for (let tier = claimedTier + 1; tier <= afterTier; tier += 1) {
+      for (let tier = startTier + 1; tier <= afterTier; tier += 1) {
         const reward = getTierReward(after, tier)
+        if (reward <= 0) continue
 
-        if (reward > 0) {
-          rewardTotal += reward
-          rewards.push({
-            xp: reward,
-            message: tier === 1
-              ? 'Minimum wykonane!'
-              : tier === 2
-                ? 'Cel wykonany!'
-                : 'BONUS! Przekroczony cel!',
-          })
-        }
+        rewardTotal += reward
+        rewards.push({
+          xp: reward,
+          message: tier === 1
+            ? 'Minimum wykonane!'
+            : tier === 2
+              ? 'Cel wykonany!'
+              : 'BONUS! Przekroczony cel!',
+        })
       }
+
+      if (!rewardTotal) return current
 
       const nextRewards = {
-        ...rewardsByTask,
-        [after.id]: afterTier,
+        ...currentRewards,
+        [after.id]: Math.max(claimedTier, afterTier),
       }
 
+      // Kolejka animacji jest aktualizowana razem z faktycznym przyznaniem XP.
       rewards.forEach((reward) => queueReward(reward.xp, reward.message))
 
       return {
