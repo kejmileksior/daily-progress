@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const WEEKDAYS = [
@@ -18,7 +18,7 @@ const CATEGORIES = ['YouTube', 'Zdrowie', 'Sport', 'Nauka', 'Praca', 'Inne']
 const XP_PER_TASK_DEFAULT = 25
 const IMPORTANT_BONUS_XP = 100
 const IMPORTANT_TASKS_FOR_BONUS = 5
-const XP_DATA_VERSION = 3
+const XP_DATA_VERSION = 4
 
 // Około 10 idealnych dni = jedna nowa ranga:
 // 5 ważnych zadań × 25 XP + 100 XP bonusu = 225 XP / dzień.
@@ -331,7 +331,10 @@ function getLevelProgress(totalXp) {
 }
 
 function App() {
-  const today = new Date()
+  // Data jest stanem, żeby aplikacja sama przeszła na nowy dzień
+  // nawet jeśli pozostaje otwarta przez całą noc.
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const today = currentDate
   const todayKey = getDateKey(today)
   const todayDay = getDayOfWeek(today)
   const storageKey = `daily-tasks-${todayKey}`
@@ -499,6 +502,52 @@ function App() {
 
     return () => window.clearTimeout(timeout)
   }, [rewardQueue, activeReward])
+
+  // Wykrywa zmianę dnia bez ręcznego odświeżania aplikacji.
+  useEffect(() => {
+    const checkDate = () => {
+      const nextDate = new Date()
+      if (getDateKey(nextDate) !== todayKey) {
+        setCurrentDate(nextDate)
+      }
+    }
+
+    const interval = window.setInterval(checkDate, 30 * 1000)
+    const timeout = window.setTimeout(checkDate, 1000)
+
+    return () => {
+      window.clearInterval(interval)
+      window.clearTimeout(timeout)
+    }
+  }, [todayKey])
+
+  const initializedDateRef = useRef(todayKey)
+
+  useEffect(() => {
+    if (initializedDateRef.current === todayKey) return
+
+    initializedDateRef.current = todayKey
+
+    const savedTasks = safeGetJson(`daily-tasks-${todayKey}`, null)
+    const freshTasks = getTasksForToday(
+      taskDefinitions,
+      Array.isArray(savedTasks) ? savedTasks : null,
+    )
+
+    setTasks(freshTasks)
+    setXpData(normalizeXpDay(safeGetJson(`daily-xp-${todayKey}`, null)))
+
+    const weekKey = getWeekStartKey(today)
+    try {
+      setWeeklyBonusClaimed(localStorage.getItem(`weekly-bonus-${weekKey}`) === 'claimed')
+    } catch {
+      setWeeklyBonusClaimed(false)
+    }
+
+    setRewardQueue([])
+    setActiveReward(null)
+    setConfetti([])
+  }, [todayKey, todayDay, taskDefinitions])
 
   useEffect(() => {
     safeSetJson('task-definitions', taskDefinitions)
@@ -867,39 +916,49 @@ function App() {
 
     if (afterTier <= beforeTier) return
 
-    const rewards = []
-    let rewardTotal = 0
+    // Najważniejsze: stan nagród jest sprawdzany i zapisywany atomowo
+    // w updaterze setXpData. Dzięki temu ponowne kliknięcie tego samego
+    // zadania nie może przyznać XP drugi raz.
+    setXpData((current) => {
+      const rewardsByTask = current.rewardsByTask || {}
+      const claimedTier = Number(rewardsByTask[after.id]) || 0
 
-    for (let tier = beforeTier + 1; tier <= afterTier; tier += 1) {
-      const reward = getTierReward(after, tier)
-      if (reward <= 0) continue
-      rewardTotal += reward
-      rewards.push({
-        xp: reward,
-        message: tier === 1
-          ? 'Minimum wykonane!'
-          : tier === 2
-            ? 'Cel wykonany!'
-            : 'BONUS! Przekroczony cel!',
-      })
-    }
+      // Jeśli ten poziom był już kiedyś nagrodzony, nie dawaj XP ponownie.
+      if (afterTier <= claimedTier) return current
 
-    if (!rewardTotal) return
+      let rewardTotal = 0
+      const rewards = []
 
-    const currentRewards = xpData.rewardsByTask || {}
-    const nextRewards = {
-      ...currentRewards,
-      [after.id]: afterTier,
-    }
+      for (let tier = claimedTier + 1; tier <= afterTier; tier += 1) {
+        const reward = getTierReward(after, tier)
 
-    setXpData((current) => ({
-      ...current,
-      version: XP_DATA_VERSION,
-      rewardsByTask: nextRewards,
-      taskXp: current.taskXp + rewardTotal,
-    }))
+        if (reward > 0) {
+          rewardTotal += reward
+          rewards.push({
+            xp: reward,
+            message: tier === 1
+              ? 'Minimum wykonane!'
+              : tier === 2
+                ? 'Cel wykonany!'
+                : 'BONUS! Przekroczony cel!',
+          })
+        }
+      }
 
-    rewards.forEach((reward) => queueReward(reward.xp, reward.message))
+      const nextRewards = {
+        ...rewardsByTask,
+        [after.id]: afterTier,
+      }
+
+      rewards.forEach((reward) => queueReward(reward.xp, reward.message))
+
+      return {
+        ...current,
+        version: XP_DATA_VERSION,
+        rewardsByTask: nextRewards,
+        taskXp: current.taskXp + rewardTotal,
+      }
+    })
   }
 
   const awardImportantBonusIfReady = (nextTasks) => {
@@ -908,18 +967,19 @@ function App() {
 
     const importantCompleted = importantTasks.filter(isTaskCompleted).length
 
-    if (
-      importantCompleted >= IMPORTANT_TASKS_FOR_BONUS &&
-      !xpData.importantBonusClaimed
-    ) {
-      setXpData((current) => ({
-        ...current,
-        version: XP_DATA_VERSION,
-        bonusXp: current.bonusXp + IMPORTANT_BONUS_XP,
-        importantBonusClaimed: true,
-      }))
+    if (importantCompleted >= IMPORTANT_TASKS_FOR_BONUS) {
+      setXpData((current) => {
+        if (current.importantBonusClaimed) return current
 
-      queueReward(IMPORTANT_BONUS_XP, 'PERFECT DAY! 5 najważniejszych ukończone!')
+        queueReward(IMPORTANT_BONUS_XP, 'PERFECT DAY! 5 najważniejszych ukończone!')
+
+        return {
+          ...current,
+          version: XP_DATA_VERSION,
+          bonusXp: current.bonusXp + IMPORTANT_BONUS_XP,
+          importantBonusClaimed: true,
+        }
+      })
     }
   }
 
