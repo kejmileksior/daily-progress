@@ -914,53 +914,46 @@ function App() {
     const beforeTier = getTaskTier(before)
     const afterTier = getTaskTier(after)
 
-    if (afterTier <= beforeTier) return
+    // Nagroda za dany poziom zadania może zostać odebrana tylko raz.
+    // Odznaczenie i ponowne zaznaczenie nie daje kolejnego XP.
+    const currentRewards = xpData.rewardsByTask || {}
+    const claimedTier = Number(currentRewards[after.id]) || 0
+    const startTier = Math.max(beforeTier, claimedTier)
 
-    // WAŻNE: liczymy odebraną nagrodę z AKTUALNEGO stanu Reacta,
-    // a nie ze starego xpData z closure. Dzięki temu nawet bardzo szybkie
-    // kliknięcie odznacz/zaznacz nie może nabić XP drugi raz.
-    setXpData((current) => {
-      const currentRewards = current.rewardsByTask || {}
-      const claimedTier = Number(currentRewards[after.id]) || 0
-      const startTier = Math.max(beforeTier, claimedTier)
+    if (afterTier <= startTier) return
 
-      if (afterTier <= startTier) return current
+    const rewards = []
+    let rewardTotal = 0
 
-      const rewards = []
-      let rewardTotal = 0
+    for (let tier = startTier + 1; tier <= afterTier; tier += 1) {
+      const reward = getTierReward(after, tier)
+      if (reward <= 0) continue
+      rewardTotal += reward
+      rewards.push({
+        xp: reward,
+        message: tier === 1
+          ? 'Minimum wykonane!'
+          : tier === 2
+            ? 'Cel wykonany!'
+            : 'BONUS! Przekroczony cel!',
+      })
+    }
 
-      for (let tier = startTier + 1; tier <= afterTier; tier += 1) {
-        const reward = getTierReward(after, tier)
-        if (reward <= 0) continue
+    if (!rewardTotal) return
 
-        rewardTotal += reward
-        rewards.push({
-          xp: reward,
-          message: tier === 1
-            ? 'Minimum wykonane!'
-            : tier === 2
-              ? 'Cel wykonany!'
-              : 'BONUS! Przekroczony cel!',
-        })
-      }
+    const nextRewards = {
+      ...currentRewards,
+      [after.id]: Math.max(claimedTier, afterTier),
+    }
 
-      if (!rewardTotal) return current
+    setXpData((current) => ({
+      ...current,
+      version: XP_DATA_VERSION,
+      rewardsByTask: nextRewards,
+      taskXp: current.taskXp + rewardTotal,
+    }))
 
-      const nextRewards = {
-        ...currentRewards,
-        [after.id]: Math.max(claimedTier, afterTier),
-      }
-
-      // Kolejka animacji jest aktualizowana razem z faktycznym przyznaniem XP.
-      rewards.forEach((reward) => queueReward(reward.xp, reward.message))
-
-      return {
-        ...current,
-        version: XP_DATA_VERSION,
-        rewardsByTask: nextRewards,
-        taskXp: current.taskXp + rewardTotal,
-      }
-    })
+    rewards.forEach((reward) => queueReward(reward.xp, reward.message))
   }
 
   const awardImportantBonusIfReady = (nextTasks) => {
@@ -969,19 +962,18 @@ function App() {
 
     const importantCompleted = importantTasks.filter(isTaskCompleted).length
 
-    if (importantCompleted >= IMPORTANT_TASKS_FOR_BONUS) {
-      setXpData((current) => {
-        if (current.importantBonusClaimed) return current
+    if (
+      importantCompleted >= IMPORTANT_TASKS_FOR_BONUS &&
+      !xpData.importantBonusClaimed
+    ) {
+      setXpData((current) => ({
+        ...current,
+        version: XP_DATA_VERSION,
+        bonusXp: current.bonusXp + IMPORTANT_BONUS_XP,
+        importantBonusClaimed: true,
+      }))
 
-        queueReward(IMPORTANT_BONUS_XP, 'PERFECT DAY! 5 najważniejszych ukończone!')
-
-        return {
-          ...current,
-          version: XP_DATA_VERSION,
-          bonusXp: current.bonusXp + IMPORTANT_BONUS_XP,
-          importantBonusClaimed: true,
-        }
-      })
+      queueReward(IMPORTANT_BONUS_XP, 'PERFECT DAY! 5 najważniejszych ukończone!')
     }
   }
 
