@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const WEEKDAYS = [
@@ -331,10 +331,7 @@ function getLevelProgress(totalXp) {
 }
 
 function App() {
-  // Data jest stanem, żeby aplikacja sama przeszła na nowy dzień
-  // nawet jeśli pozostaje otwarta przez całą noc.
-  const [currentDate, setCurrentDate] = useState(() => new Date())
-  const today = currentDate
+  const today = new Date()
   const todayKey = getDateKey(today)
   const todayDay = getDayOfWeek(today)
   const storageKey = `daily-tasks-${todayKey}`
@@ -502,52 +499,6 @@ function App() {
 
     return () => window.clearTimeout(timeout)
   }, [rewardQueue, activeReward])
-
-  // Wykrywa zmianę dnia bez ręcznego odświeżania aplikacji.
-  useEffect(() => {
-    const checkDate = () => {
-      const nextDate = new Date()
-      if (getDateKey(nextDate) !== todayKey) {
-        setCurrentDate(nextDate)
-      }
-    }
-
-    const interval = window.setInterval(checkDate, 30 * 1000)
-    const timeout = window.setTimeout(checkDate, 1000)
-
-    return () => {
-      window.clearInterval(interval)
-      window.clearTimeout(timeout)
-    }
-  }, [todayKey])
-
-  const initializedDateRef = useRef(todayKey)
-
-  useEffect(() => {
-    if (initializedDateRef.current === todayKey) return
-
-    initializedDateRef.current = todayKey
-
-    const savedTasks = safeGetJson(`daily-tasks-${todayKey}`, null)
-    const freshTasks = getTasksForToday(
-      taskDefinitions,
-      Array.isArray(savedTasks) ? savedTasks : null,
-    )
-
-    setTasks(freshTasks)
-    setXpData(normalizeXpDay(safeGetJson(`daily-xp-${todayKey}`, null)))
-
-    const weekKey = getWeekStartKey(today)
-    try {
-      setWeeklyBonusClaimed(localStorage.getItem(`weekly-bonus-${weekKey}`) === 'claimed')
-    } catch {
-      setWeeklyBonusClaimed(false)
-    }
-
-    setRewardQueue([])
-    setActiveReward(null)
-    setConfetti([])
-  }, [todayKey, todayDay, taskDefinitions])
 
   useEffect(() => {
     safeSetJson('task-definitions', taskDefinitions)
@@ -914,18 +865,12 @@ function App() {
     const beforeTier = getTaskTier(before)
     const afterTier = getTaskTier(after)
 
-    // Nagroda za dany poziom zadania może zostać odebrana tylko raz.
-    // Odznaczenie i ponowne zaznaczenie nie daje kolejnego XP.
-    const currentRewards = xpData.rewardsByTask || {}
-    const claimedTier = Number(currentRewards[after.id]) || 0
-    const startTier = Math.max(beforeTier, claimedTier)
-
-    if (afterTier <= startTier) return
+    if (afterTier <= beforeTier) return
 
     const rewards = []
     let rewardTotal = 0
 
-    for (let tier = startTier + 1; tier <= afterTier; tier += 1) {
+    for (let tier = beforeTier + 1; tier <= afterTier; tier += 1) {
       const reward = getTierReward(after, tier)
       if (reward <= 0) continue
       rewardTotal += reward
@@ -941,9 +886,10 @@ function App() {
 
     if (!rewardTotal) return
 
+    const currentRewards = xpData.rewardsByTask || {}
     const nextRewards = {
       ...currentRewards,
-      [after.id]: Math.max(claimedTier, afterTier),
+      [after.id]: afterTier,
     }
 
     setXpData((current) => ({
