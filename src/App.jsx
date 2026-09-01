@@ -527,6 +527,11 @@ function App() {
   const [profileForm, setProfileForm] = useState(() => nutritionProfile || { weight: '', height: '', age: '', sex: 'male', activity: 1.375, goal: 'gain', targetWeight: '' })
   const [nutritionMessage, setNutritionMessage] = useState('')
 
+  // AI Food Scanner
+  const [foodAiLoading, setFoodAiLoading] = useState(false)
+  const [foodAiResult, setFoodAiResult] = useState(null)
+  const [foodAiError, setFoodAiError] = useState('')
+
 
   const [rewardQueue, setRewardQueue] = useState([])
   const [activeReward, setActiveReward] = useState(null)
@@ -557,6 +562,18 @@ function App() {
         return normalizeTask(task)
       })
       return changed ? migrated : current
+    })
+  }, [])
+
+  useEffect(() => {
+    // Starsza wersja zapisywała zadania bez showOnMain. Nie pozwól,
+    // żeby po aktualizacji główna strona została pusta.
+    setTaskDefinitions((current) => {
+      if (!current.length || current.some((task) => task.showOnMain === true)) return current
+      const important = current.filter((task) => task.important).slice(0, 5)
+      const ids = new Set(important.map((task) => task.id))
+      if (!ids.size) return current.slice(0, 5).map((task) => ({ ...task, showOnMain: true }))
+      return current.map((task) => ids.has(task.id) ? { ...task, showOnMain: true } : task)
     })
   }, [])
 
@@ -1081,9 +1098,13 @@ function App() {
 
   // Główna strona zaczyna się pusta. Pokazujemy tutaj wyłącznie zadania,
   // które użytkownik świadomie dodał do sekcji „Najważniejsze na dziś”.
-  const mainTasks = tasks
-    .filter((task) => task.showOnMain === true)
-    .slice(0, 5)
+  const mainTasks = (() => {
+    const selected = tasks.filter((task) => task.showOnMain === true)
+    // Migracja starej wersji: jeśli żadne zadanie nie było oznaczone
+    // jako widoczne na głównej, pokaż najważniejsze zamiast pustej strony.
+    if (selected.length) return selected.slice(0, 5)
+    return tasks.filter((task) => task.important).slice(0, 5)
+  })()
 
   const renderTaskCard = (task) => {
     const completed = isTaskCompleted(task)
@@ -1661,6 +1682,64 @@ function App() {
     )
   }
 
+  const analyzeFoodPhoto = async (file) => {
+    if (!file) return
+
+    setFoodAiLoading(true)
+    setFoodAiError('')
+    setFoodAiResult(null)
+    setNutritionMessage('🤖 AI analizuje zdjęcie posiłku…')
+
+    try {
+      const imageData = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(new Error('Nie udało się odczytać zdjęcia.'))
+        reader.readAsDataURL(file)
+      })
+
+      const endpoint = import.meta.env.VITE_AI_API_URL || '/api/analyze-food'
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData, language: 'pl' }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data?.error || 'Nie udało się przeanalizować zdjęcia.')
+      if (!data?.food || typeof data.food !== 'object') throw new Error('AI zwróciło nieprawidłowy wynik.')
+
+      const food = {
+        name: String(data.food.name || 'Posiłek ze zdjęcia'),
+        emoji: data.food.emoji || '🍽️',
+        grams: Math.max(1, Number(data.food.grams) || 100),
+        kcal: Math.max(0, Number(data.food.kcal) || 0),
+        protein: Math.max(0, Number(data.food.protein) || 0),
+        fat: Math.max(0, Number(data.food.fat) || 0),
+        carbs: Math.max(0, Number(data.food.carbs) || 0),
+        sugar: Math.max(0, Number(data.food.sugar) || 0),
+        confidence: Math.max(0, Math.min(100, Number(data.food.confidence) || 0)),
+        ingredients: Array.isArray(data.food.ingredients) ? data.food.ingredients : [],
+        note: String(data.food.note || ''),
+      }
+
+      setFoodAiResult(food)
+      setNutritionMessage('✅ AI zakończyło analizę. Sprawdź wynik przed dodaniem.')
+    } catch (error) {
+      console.error(error)
+      setFoodAiError(error?.message || 'Nie udało się przeanalizować zdjęcia.')
+      setNutritionMessage('❌ Analiza zdjęcia nie powiodła się.')
+    } finally {
+      setFoodAiLoading(false)
+    }
+  }
+
+  const addAiFoodToDay = () => {
+    if (!foodAiResult) return
+    addFoodToDay(foodAiResult, foodAiResult.grams)
+    setFoodAiResult(null)
+  }
+
   const renderNutrition = () => {
     const favorites = nutritionFoods.filter((food) => food.favorite)
     const caloriePercent = calorieTarget
@@ -1774,6 +1853,58 @@ function App() {
             <p>{nutritionMessage}</p>
           </div>
         )}
+
+        <section className="nutrition-section ai-food-section">
+          <div className="nutrition-section-heading">
+            <div>
+              <p className="eyebrow">AI • AUTOMATYCZNA ANALIZA</p>
+              <h2>📸 Zeskanuj posiłek</h2>
+            </div>
+            <span className="ai-badge">AI</span>
+          </div>
+
+          <div className="ai-food-scanner">
+            <div className="ai-food-scanner-glow" />
+            <div className="ai-food-scanner-copy">
+              <div className="ai-food-icon">✨</div>
+              <div>
+                <strong>Zrób zdjęcie, a AI policzy resztę</strong>
+                <small>Rozpoznam jedzenie i oszacuję porcję, gramy, kcal, białko, tłuszcz i węgle. Wynik jest orientacyjny — zdjęcie nie zastępuje wagi kuchennej.</small>
+              </div>
+            </div>
+
+            <div className="ai-food-actions">
+              <label className={`ai-food-button primary ${foodAiLoading ? 'loading' : ''}`}>
+                <input type="file" accept="image/*" capture="environment" disabled={foodAiLoading} onChange={(event) => { const file = event.target.files?.[0]; if (file) analyzeFoodPhoto(file); event.target.value = '' }} />
+                <span>{foodAiLoading ? '⏳' : '📷'}</span>{foodAiLoading ? 'Analizuję…' : 'Zrób zdjęcie'}
+              </label>
+              <label className="ai-food-button secondary">
+                <input type="file" accept="image/*" disabled={foodAiLoading} onChange={(event) => { const file = event.target.files?.[0]; if (file) analyzeFoodPhoto(file); event.target.value = '' }} />
+                <span>🖼️</span>Galeria
+              </label>
+            </div>
+
+            {foodAiError && <div className="ai-food-error"><strong>Nie udało się przeanalizować zdjęcia</strong><span>{foodAiError}</span></div>}
+
+            {foodAiResult && (
+              <div className="ai-food-result">
+                <div className="ai-result-heading">
+                  <div className="ai-result-food"><span>{foodAiResult.emoji}</span><div><strong>{foodAiResult.name}</strong><small>Szacowana porcja • {foodAiResult.grams} g</small></div></div>
+                  <div className="ai-confidence"><strong>{foodAiResult.confidence}%</strong><small>pewności</small></div>
+                </div>
+                <div className="ai-macro-grid">
+                  <div><strong>{foodAiResult.kcal}</strong><small>kcal</small></div>
+                  <div><strong>{foodAiResult.protein} g</strong><small>białko</small></div>
+                  <div><strong>{foodAiResult.fat} g</strong><small>tłuszcz</small></div>
+                  <div><strong>{foodAiResult.carbs} g</strong><small>węgle</small></div>
+                </div>
+                {foodAiResult.ingredients.length > 0 && <div className="ai-ingredients"><span>SKŁADNIKI</span>{foodAiResult.ingredients.map((item, index) => <div key={`${item.name || 'składnik'}-${index}`}><strong>{item.name || 'Składnik'}</strong><small>{item.grams ? `${item.grams} g` : 'ilość orientacyjna'}</small></div>)}</div>}
+                {foodAiResult.note && <p className="ai-food-note">ℹ️ {foodAiResult.note}</p>}
+                <div className="ai-result-actions"><button className="ai-add-result" onClick={addAiFoodToDay}>＋ Dodaj do dzisiaj</button><button className="ai-discard-result" onClick={() => setFoodAiResult(null)}>Odrzuć</button></div>
+              </div>
+            )}
+          </div>
+        </section>
 
         <section className="nutrition-section">
           <div className="nutrition-section-heading">
