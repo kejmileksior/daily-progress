@@ -1351,3 +1351,536 @@ body {
     flex-basis: 30px;
   }
 }
+
+
+/* =========================================================
+   ✨ BAJECZNY UI — nowa warstwa wizualna
+   Zachowuje istniejące klasy/funkcje, zmienia tylko wygląd.
+   ========================================================= */
+
+:root {
+  --bg: #0f1020;
+  --bg-soft: #15172b;
+  --card: rgba(27, 29, 49, .78);
+  --card-strong: rgba(31, 34, 58, .92);
+  --line: rgba(255,255,255,.10);
+  --text: #f8f7ff;
+  --muted: #aaa9c2;
+  --purple: #a77bff;
+  --purple-2: #d29cff;
+  --blue: #7dd3fc;
+  --mint: #8ef0cf;
+  --peach: #ffb88a;
+  --pink: #ff8fbd;
+  --shadow: 0 20px 60px rgba(0,0,0,.28);
+}
+
+html {
+  background:
+    radial-gradient(circle at 15% 5%, rgba(167,123,255,.18), transparent 28%),
+    radial-gradient(circle at 90% 15%, rgba(125,211,252,.12), transparent 26%),
+    #0f1020;
+}
+
+body {
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(167,123,255,.13), transparent 30%),
+    radial-gradient(circle at 100% 40%, rgba(142,240,207,.08), transparent 28%),
+    #0f1020;
+}
+
+.app {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(167,123,255,.20), transparent 32%),
+    radial-gradient(circle at 95% 18%, rgba(125,211,252,.14), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(255,143,189,.08), transparent 35%),
+    linear-gradient(180deg, #111225 0%, #0d0e1b 100%);
+}
+
+.container {
+  position: relative;
+}
+
+/* Delikatne świetlne tło */
+.container::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 18%, rgba(167,123,255,.10), transparent 22%),
+    radial-gradient(circle at 88% 48%, rgba(125,211,252,.07), transparent 22%);
+}
+
+/* ---------- NAGŁÓWEK ---------- */
+
+.eyebrow,
+.category-summary-label {
+  color: #b9b5d6;
+  letter-spacing: 1.8px;
+}
+
+h1 {
+  background: linear-gradient(100deg, #ffffff 15%, #dfc8ff 55%, #a9eaff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.date {
+  color: #9695ae;
+}
+
+/* ---------- MINI STATY ---------- */
+
+.mini-stat {
+  border: 1px solid rgba(255,255,255,.10);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025)),
+    rgba(24,25,43,.72);
+  box-shadow: 0 12px 35px rgba(0,0,0,.18);
+  backdrop-filter: blur(18px);
+}
+
+.mini-stat:first-child {
+  box-shadow: 0 12px 35px rgba(167,123,255,.10);
+}
+
+/* ---------- KARTA RANGI / POSTĘPU ---------- */
+
+.rank-card,
+.progress-card,
+.settings-block,
+.history-card,
+.stat-card,
+.more-grid button {
+  border-color: rgba(255,255,255,.10);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025)),
+    rgba(22,24,42,.78);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.rank-card {
+  box-shadow: 0 18px 50px rgba(126,91,210,.12);
+}
+
+.rank-icon,
+.task-icon,
+.category-card-icon,
+.badge-icon,
+.rank-step-icon {
+  background: linear-gradient(145deg, rgba(167,123,255,.20), rgba(125,211,252,.08));
+  border: 1px solid rgba(255,255,255,.07);
+}
+
+.rank-fill,
+.progress-fill,
+.category-summary-bar div,
+.category-card-progress > div,
+.weekly-progress-bar > div {
+  background: linear-gradient(90deg, #9b6cff 0%, #cf91ff 48%, #7dd3fc 100%);
+  box-shadow: 0 0 18px rgba(167,123,255,.25);
+}
+
+/* ---------- GŁÓWNE ZADANIA ---------- */
+
+.task,
+.recent-day,
+.empty-history,
+.empty-state,
+.settings-task,
+.category-card,
+.goal-card,
+.profile-section-block,
+.level-card {
+  border-color: rgba(255,255,255,.09);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.065), rgba(255,255,255,.018)),
+    rgba(22,24,42,.76);
+  box-shadow: 0 14px 38px rgba(0,0,0,.20);
+  backdrop-filter: blur(16px);
+}
+
+.task {
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.task:hover {
+  transform: translateY(-2px);
+  border-color: rgba(183,145,255,.38);
+  box-shadow: 0 18px 45px rgba(93,67,157,.16);
+}
+
+.task.completed {
+  opacity: .66;
+}
+
+.task-category {
+  color: #a9a5c2;
+}
+
+.task-title {
+  color: #fff;
+}
+
+.task-description {
+  color: #8f8ea8;
+}
+
+.task-xp,
+.task-xp-wrap .task-xp {
+  color: #d2a7ff;
+}
+
+.counter-button,
+.checkbox,
+.goal-controls button {
+  border-color: rgba(255,255,255,.13);
+  background: rgba(255,255,255,.055);
+  transition: .15s ease;
+}
+
+.counter-button:hover,
+.goal-controls button:hover {
+  border-color: rgba(167,123,255,.55);
+  background: rgba(167,123,255,.16);
+  transform: translateY(-1px);
+}
+
+.checkbox.checked {
+  border-color: #a77bff;
+  background: linear-gradient(135deg, #9b6cff, #cf91ff);
+  box-shadow: 0 0 22px rgba(167,123,255,.28);
+}
+
+/* =========================================================
+   🍽️ KALORIE — duża, czytelna karta podsumowania
+   ========================================================= */
+
+.category-header {
+  position: relative;
+  padding: 20px;
+  margin: -4px -2px 16px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(125,211,252,.20), transparent 28%),
+    radial-gradient(circle at 12% 90%, rgba(167,123,255,.22), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.025)),
+    rgba(24,26,46,.80);
+  box-shadow: 0 22px 65px rgba(0,0,0,.25);
+  backdrop-filter: blur(22px);
+}
+
+.category-header-main h1 {
+  font-size: clamp(31px, 8vw, 42px);
+  letter-spacing: -1.5px;
+}
+
+.category-header-main h1::first-letter {
+  filter: drop-shadow(0 5px 12px rgba(167,123,255,.35));
+}
+
+.category-header-stats .mini-stat {
+  min-width: 78px;
+  min-height: 78px;
+}
+
+/* Główna karta kcal */
+.category-summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 13px;
+  padding: 20px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 92% 5%, rgba(142,240,207,.17), transparent 25%),
+    radial-gradient(circle at 5% 100%, rgba(167,123,255,.18), transparent 35%),
+    linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.02)),
+    rgba(20,23,40,.86);
+  box-shadow:
+    0 24px 65px rgba(0,0,0,.26),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(22px);
+}
+
+.category-summary > div:first-child {
+  gap: 5px;
+}
+
+.category-summary-label {
+  font-size: 10px;
+}
+
+.category-summary strong {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -1px;
+  background: linear-gradient(100deg, #fff, #d6c2ff, #a8edff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.category-summary-bar {
+  height: 13px;
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.25);
+}
+
+.category-summary-bar div {
+  box-shadow: 0 0 20px rgba(167,123,255,.38);
+}
+
+.category-summary-percent {
+  position: absolute;
+  top: 19px;
+  right: 20px;
+  min-width: auto;
+  color: #d8c3ff;
+  font-size: 17px;
+}
+
+/* Zakładki */
+.category-tabs button {
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.045);
+  color: #aaa8c0;
+  backdrop-filter: blur(12px);
+}
+
+.category-tabs button.active {
+  border-color: transparent;
+  background: linear-gradient(135deg, #9b6cff, #c58dff);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(155,108,255,.25);
+}
+
+/* ---------- KATEGORIE ---------- */
+
+.category-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.category-card::after {
+  content: "";
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  right: -65px;
+  top: -65px;
+  border-radius: 50%;
+  background: rgba(167,123,255,.10);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+.category-card:hover {
+  border-color: rgba(167,123,255,.38);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(0,0,0,.22);
+}
+
+.category-card-arrow {
+  color: #c7a9ff;
+}
+
+/* ---------- PROFILE / GOALS / WEEKLY ---------- */
+
+.profile-hero,
+.level-card,
+.profile-section-block,
+.goals-hero,
+.weekly-hero,
+.weekly-card,
+.rank-hero {
+  border-color: rgba(255,255,255,.10);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)),
+    rgba(22,24,42,.78);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.profile-avatar,
+.rank-hero-icon {
+  background: linear-gradient(135deg, #9b6cff, #cf91ff 55%, #7dd3fc);
+  box-shadow: 0 15px 35px rgba(155,108,255,.25);
+}
+
+.weekly-card.completed,
+.goal-card.completed {
+  border-color: rgba(167,123,255,.48);
+  box-shadow: 0 16px 40px rgba(155,108,255,.12);
+}
+
+.weekly-check {
+  background: rgba(255,255,255,.06);
+}
+
+.weekly-card.completed .weekly-check {
+  background: linear-gradient(135deg, #9b6cff, #cf91ff);
+}
+
+/* ---------- MODALE ---------- */
+
+.modal-overlay {
+  background: rgba(5,6,15,.72);
+  backdrop-filter: blur(12px);
+}
+
+.modal {
+  border-color: rgba(255,255,255,.12);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(125,211,252,.10), transparent 25%),
+    linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.025)),
+    #17192d;
+  box-shadow: 0 30px 100px rgba(0,0,0,.45);
+}
+
+.modal input,
+.modal select {
+  border-color: rgba(255,255,255,.11);
+  background: rgba(255,255,255,.055);
+}
+
+.modal input:focus,
+.modal select:focus {
+  border-color: #a77bff;
+  box-shadow: 0 0 0 3px rgba(167,123,255,.12);
+}
+
+.add-task-button,
+.save-task-button {
+  background: linear-gradient(135deg, #9b6cff, #c98fff);
+  box-shadow: 0 10px 28px rgba(155,108,255,.24);
+  transition: .16s ease;
+}
+
+.add-task-button:hover,
+.save-task-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(155,108,255,.32);
+}
+
+/* ---------- DOLNA NAWIGACJA ---------- */
+
+.bottom-nav {
+  border-top: 1px solid rgba(255,255,255,.09);
+  background: rgba(12,13,25,.78);
+  box-shadow: 0 -12px 35px rgba(0,0,0,.20);
+  backdrop-filter: blur(24px);
+}
+
+.nav-item {
+  transition: .16s ease;
+}
+
+.nav-item.active {
+  color: #d0b0ff;
+}
+
+.nav-item.active span {
+  filter: drop-shadow(0 4px 10px rgba(167,123,255,.38));
+}
+
+/* ---------- PASKI / OZDOBNIKI ---------- */
+
+.progress-bar,
+.rank-bar,
+.weekly-progress-bar,
+.category-card-progress {
+  background: rgba(255,255,255,.075);
+}
+
+.task-tiers span,
+.task-days-preview span {
+  border-color: rgba(255,255,255,.09);
+  background: rgba(255,255,255,.035);
+}
+
+.task-tiers span.reached {
+  border-color: rgba(167,123,255,.38);
+  background: rgba(167,123,255,.14);
+  color: #d2b9ff;
+}
+
+/* ---------- MOBILE ---------- */
+
+@media (max-width: 560px) {
+  .category-header {
+    padding: 17px;
+    border-radius: 23px;
+  }
+
+  .category-summary {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .category-summary strong {
+    font-size: 29px;
+  }
+}
+
+@media (max-width: 430px) {
+  .container {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .category-header {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 16px;
+  }
+
+  .category-header-main h1 {
+    font-size: 31px;
+  }
+
+  .category-summary {
+    padding: 17px;
+  }
+
+  .category-summary-percent {
+    top: 17px;
+    right: 17px;
+  }
+
+  .task,
+  .category-card {
+    box-shadow: 0 10px 28px rgba(0,0,0,.18);
+  }
+}
+
+/* Płynniejsze animacje bez przesady */
+@media (prefers-reduced-motion: no-preference) {
+  .category-summary,
+  .category-header,
+  .task,
+  .category-card,
+  .rank-card,
+  .progress-card {
+    animation: soft-enter .35s ease both;
+  }
+
+  @keyframes soft-enter {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
