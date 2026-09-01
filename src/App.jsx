@@ -222,6 +222,75 @@ function safeSetJson(key, value) {
   }
 }
 
+const NUTRITION_PROFILE_KEY = 'nutrition-profile-v1'
+const NUTRITION_FOODS_KEY = 'nutrition-foods-v1'
+const NUTRITION_DAY_PREFIX = 'nutrition-day-v1-'
+
+const DEFAULT_FOODS = [
+  { id: 'egg-scramble', name: 'Jajecznica', emoji: '🍳', grams: 200, kcal: 196, protein: 12.6, fat: 15, carbs: 1.5, sugar: 0.7, favorite: true },
+  { id: 'banana', name: 'Banan', emoji: '🍌', grams: 120, kcal: 107, protein: 1.3, fat: 0.4, carbs: 27.4, sugar: 14.4, favorite: false },
+  { id: 'chicken', name: 'Pierś z kurczaka', emoji: '🍗', grams: 150, kcal: 248, protein: 46.5, fat: 5.4, carbs: 0, sugar: 0, favorite: false },
+  { id: 'rice', name: 'Ryż gotowany', emoji: '🍚', grams: 200, kcal: 260, protein: 5.4, fat: 0.6, carbs: 56.4, sugar: 0.2, favorite: false },
+]
+
+function calculateCalorieTarget(profile) {
+  if (!profile?.weight || !profile?.height || !profile?.age) return 0
+  const sexFactor = profile.sex === 'female' ? -161 : 5
+  const bmr = 10 * Number(profile.weight) + 6.25 * Number(profile.height) - 5 * Number(profile.age) + sexFactor
+  const activity = Number(profile.activity) || 1.375
+  const tdee = Math.round(bmr * activity)
+  if (profile.goal === 'gain') return tdee + 300
+  if (profile.goal === 'lose') return Math.max(1200, tdee - 300)
+  return tdee
+}
+
+function normalizeFood(food = {}) {
+  return {
+    id: food.id ?? Date.now(),
+    name: String(food.name || 'Produkt'),
+    emoji: food.emoji || '🍽️',
+    grams: Math.max(1, Number(food.grams) || 100),
+    kcal: Math.max(0, Number(food.kcal) || 0),
+    protein: Math.max(0, Number(food.protein) || 0),
+    fat: Math.max(0, Number(food.fat) || 0),
+    carbs: Math.max(0, Number(food.carbs) || 0),
+    sugar: Math.max(0, Number(food.sugar) || 0),
+    favorite: Boolean(food.favorite),
+  }
+}
+
+function normalizeNutritionProfile(profile) {
+  if (!profile || typeof profile !== 'object') return null
+  return {
+    weight: Math.max(1, Number(profile.weight) || 0),
+    height: Math.max(1, Number(profile.height) || 0),
+    age: Math.max(1, Number(profile.age) || 0),
+    sex: profile.sex === 'female' ? 'female' : 'male',
+    activity: Number(profile.activity) || 1.375,
+    goal: ['gain', 'lose', 'maintain'].includes(profile.goal) ? profile.goal : 'maintain',
+    targetWeight: Math.max(0, Number(profile.targetWeight) || 0),
+  }
+}
+
+function nutritionDayKey(date = new Date()) {
+  return `${NUTRITION_DAY_PREFIX}${getDateKey(date)}`
+}
+
+function foodMacrosForGrams(food, grams) {
+  const ratio = Number(grams) / 100
+  return {
+    kcal: Math.round(food.kcal * ratio),
+    protein: Math.round(food.protein * ratio * 10) / 10,
+    fat: Math.round(food.fat * ratio * 10) / 10,
+    carbs: Math.round(food.carbs * ratio * 10) / 10,
+    sugar: Math.round(food.sugar * ratio * 10) / 10,
+  }
+}
+
+function isFoodUnhealthy(food) {
+  return Number(food.fat) >= 20 || Number(food.sugar) >= 10
+}
+
 function normalizeTask(task = {}) {
   const isCheckbox = task.type === 'checkbox'
   const target = Math.max(1, Number(task.target) || 1)
@@ -441,6 +510,22 @@ function App() {
   const [goalForm, setGoalForm] = useState(emptyGoalForm)
   const [backupMessage, setBackupMessage] = useState('')
 
+  const [nutritionProfile, setNutritionProfile] = useState(() => normalizeNutritionProfile(safeGetJson(NUTRITION_PROFILE_KEY, null)))
+  const [nutritionFoods, setNutritionFoods] = useState(() => {
+    const saved = safeGetJson(NUTRITION_FOODS_KEY, null)
+    return Array.isArray(saved) && saved.length ? saved.map(normalizeFood) : DEFAULT_FOODS.map(normalizeFood)
+  })
+  const [nutritionDay, setNutritionDay] = useState(() => {
+    const saved = safeGetJson(nutritionDayKey(), [])
+    return Array.isArray(saved) ? saved : []
+  })
+  const [showNutritionProfile, setShowNutritionProfile] = useState(false)
+  const [showFoodModal, setShowFoodModal] = useState(false)
+  const [foodForm, setFoodForm] = useState({ name: '', emoji: '🍽️', grams: 100, kcal: 0, protein: 0, fat: 0, carbs: 0, sugar: 0, favorite: true })
+  const [profileForm, setProfileForm] = useState(() => nutritionProfile || { weight: '', height: '', age: '', sex: 'male', activity: 1.375, goal: 'gain', targetWeight: '' })
+  const [nutritionMessage, setNutritionMessage] = useState('')
+
+
   const [rewardQueue, setRewardQueue] = useState([])
   const [activeReward, setActiveReward] = useState(null)
   const [confetti, setConfetti] = useState([])
@@ -507,6 +592,19 @@ function App() {
   useEffect(() => {
     safeSetJson('long-term-goals', goals)
   }, [goals])
+
+  useEffect(() => {
+    safeSetJson(NUTRITION_PROFILE_KEY, nutritionProfile)
+  }, [nutritionProfile])
+
+  useEffect(() => {
+    safeSetJson(NUTRITION_FOODS_KEY, nutritionFoods)
+  }, [nutritionFoods])
+
+  useEffect(() => {
+    safeSetJson(nutritionDayKey(), nutritionDay)
+  }, [nutritionDay, todayKey])
+
 
   useEffect(() => {
     safeSetJson(storageKey, tasks)
@@ -862,15 +960,19 @@ function App() {
   }
 
   const rewardTaskProgress = (before, after) => {
-    const beforeTier = getTaskTier(before)
     const afterTier = getTaskTier(after)
+    const currentRewards = xpData.rewardsByTask || {}
+    const alreadyRewardedTier = Math.max(0, Number(currentRewards[after.id]) || 0)
 
-    if (afterTier <= beforeTier) return
+    // XP za dany próg można dostać tylko raz w danym dniu.
+    // Cofnięcie licznika/odhaczenia nie cofa nagrody i ponowne kliknięcie
+    // nie może przyznać XP drugi raz.
+    if (afterTier <= alreadyRewardedTier) return
 
     const rewards = []
     let rewardTotal = 0
 
-    for (let tier = beforeTier + 1; tier <= afterTier; tier += 1) {
+    for (let tier = alreadyRewardedTier + 1; tier <= afterTier; tier += 1) {
       const reward = getTierReward(after, tier)
       if (reward <= 0) continue
       rewardTotal += reward
@@ -886,7 +988,6 @@ function App() {
 
     if (!rewardTotal) return
 
-    const currentRewards = xpData.rewardsByTask || {}
     const nextRewards = {
       ...currentRewards,
       [after.id]: afterTier,
@@ -895,10 +996,16 @@ function App() {
     setXpData((current) => ({
       ...current,
       version: XP_DATA_VERSION,
-      rewardsByTask: nextRewards,
+      rewardsByTask: {
+        ...(current.rewardsByTask || {}),
+        [after.id]: Math.max(Number(current.rewardsByTask?.[after.id]) || 0, afterTier),
+      },
       taskXp: current.taskXp + rewardTotal,
     }))
 
+    // nextRewards jest zachowane logicznie przez setXpData; nagrody wizualne
+    // są kolejkowane osobno, żeby każda pojawiła się po kolei.
+    void nextRewards
     rewards.forEach((reward) => queueReward(reward.xp, reward.message))
   }
 
@@ -1435,6 +1542,167 @@ function App() {
     event.target.value = ''
   }
 
+
+  const nutritionTotals = nutritionDay.reduce((totals, entry) => ({
+    kcal: totals.kcal + (Number(entry.kcal) || 0),
+    protein: totals.protein + (Number(entry.protein) || 0),
+    fat: totals.fat + (Number(entry.fat) || 0),
+    carbs: totals.carbs + (Number(entry.carbs) || 0),
+    sugar: totals.sugar + (Number(entry.sugar) || 0),
+  }), { kcal: 0, protein: 0, fat: 0, carbs: 0, sugar: 0 })
+
+  const calorieTarget = calculateCalorieTarget(nutritionProfile)
+  const caloriesLeft = Math.max(0, calorieTarget - nutritionTotals.kcal)
+
+  const saveNutritionProfile = () => {
+    const profile = normalizeNutritionProfile(profileForm)
+    if (!profile.weight || !profile.height || !profile.age) return
+    setNutritionProfile(profile)
+    setProfileForm(profile)
+    setShowNutritionProfile(false)
+    setNutritionMessage('✅ Zapisałem Twoje zapotrzebowanie kaloryczne.')
+  }
+
+  const addFoodToDay = (food, grams = food.grams) => {
+    const normalized = normalizeFood(food)
+    const amount = Math.max(1, Number(grams) || normalized.grams)
+    const macros = foodMacrosForGrams(normalized, amount)
+    const unhealthy = isFoodUnhealthy(normalized)
+    const entry = {
+      id: `${Date.now()}-${Math.random()}`,
+      foodId: normalized.id,
+      name: normalized.name,
+      emoji: normalized.emoji,
+      grams: amount,
+      ...macros,
+      unhealthy,
+    }
+    setNutritionDay((current) => [...current, entry])
+    setNutritionMessage(unhealthy ? `⚠️ ${normalized.name}: NIEZDROWE — dużo tłuszczu lub cukru. Dodane mimo wszystko.` : `✅ Dodano ${normalized.name}.`)
+  }
+
+  const removeFoodFromDay = (id) => {
+    setNutritionDay((current) => current.filter((entry) => entry.id !== id))
+  }
+
+  const saveFood = () => {
+    if (!foodForm.name.trim()) return
+    const food = normalizeFood({ ...foodForm, id: Date.now(), name: foodForm.name.trim() })
+    setNutritionFoods((current) => [food, ...current.filter((item) => item.name.toLowerCase() !== food.name.toLowerCase())])
+    setShowFoodModal(false)
+    setFoodForm({ name: '', emoji: '🍽️', grams: 100, kcal: 0, protein: 0, fat: 0, carbs: 0, sugar: 0, favorite: true })
+    setNutritionMessage(`💾 Zapisano ${food.name}. Od teraz możesz dodać ją jednym kliknięciem.`)
+  }
+
+  const renderNutrition = () => {
+    const favorites = nutritionFoods.filter((food) => food.favorite)
+    return (
+      <section className="stats-section" style={{ paddingBottom: 100 }}>
+        <div className="history-header">
+          <p className="eyebrow">ODŻYWIANIE</p>
+          <h1>Kalorie 🍽️</h1>
+          <p className="date">Dzisiaj • {nutritionTotals.kcal.toLocaleString('pl-PL')} / {calorieTarget ? calorieTarget.toLocaleString('pl-PL') : '—'} kcal</p>
+        </div>
+
+        {!nutritionProfile ? (
+          <div className="settings-block" style={{ marginBottom: 16 }}>
+            <h2>Ustaw swoje zapotrzebowanie</h2>
+            <p>Podaj wagę, wzrost, wiek, aktywność i cel. Aplikacja policzy orientacyjne dzienne kcal.</p>
+            <button className="save-task-button" onClick={() => setShowNutritionProfile(true)}>Ustaw profil kcal</button>
+          </div>
+        ) : (
+          <div className="progress-card" style={{ marginBottom: 16 }}>
+            <div className="progress-top">
+              <div><span className="progress-title">DZISIAJ</span><strong>{nutritionTotals.kcal.toLocaleString('pl-PL')} kcal</strong></div>
+              <span className="percentage">{calorieTarget ? Math.min(100, Math.round((nutritionTotals.kcal / calorieTarget) * 100)) : 0}%</span>
+            </div>
+            <div className="progress-bar"><div className="progress-fill" style={{ width: `${calorieTarget ? Math.min(100, (nutritionTotals.kcal / calorieTarget) * 100) : 0}%` }} /></div>
+            <div className="day-status">
+              <span className="day-status-icon">🔥</span>
+              <div><strong>Zostało Ci {caloriesLeft.toLocaleString('pl-PL')} kcal</strong><span>Cel: {calorieTarget.toLocaleString('pl-PL')} kcal • {nutritionProfile.goal === 'gain' ? 'masa' : nutritionProfile.goal === 'lose' ? 'redukcja' : 'utrzymanie'}</span></div>
+            </div>
+            <button className="edit-button" style={{ marginTop: 10 }} onClick={() => setShowNutritionProfile(true)}>✏️ Zmień dane</button>
+          </div>
+        )}
+
+        <div className="stats-grid" style={{ marginBottom: 16 }}>
+          <div className="stat-card"><span>🥩</span><strong>{nutritionTotals.protein.toFixed(1)} g</strong><small>Białko</small></div>
+          <div className="stat-card"><span>🥑</span><strong>{nutritionTotals.fat.toFixed(1)} g</strong><small>Tłuszcz</small></div>
+          <div className="stat-card"><span>🍞</span><strong>{nutritionTotals.carbs.toFixed(1)} g</strong><small>Węgle</small></div>
+          <div className="stat-card"><span>🍬</span><strong>{nutritionTotals.sugar.toFixed(1)} g</strong><small>Cukier</small></div>
+        </div>
+
+        {nutritionMessage && <div className="day-status" style={{ marginBottom: 16 }}><span className="day-status-icon">💬</span><div><strong>{nutritionMessage}</strong></div></div>}
+
+        <section className="tasks-section">
+          <div className="section-heading"><div><p className="eyebrow">SZYBKIE DODAWANIE</p><h2>Moje produkty</h2></div><button className="add-task-button" onClick={() => setShowFoodModal(true)}>+ Dodaj</button></div>
+          <div className="tasks">
+            {favorites.length ? favorites.map((food) => (
+              <div className="task" key={food.id}>
+                <div className="task-icon">{food.emoji}</div>
+                <div className="task-content"><span className="task-title">{food.name}</span><span className="task-description">{food.grams} g • {foodMacrosForGrams(food, food.grams).kcal} kcal</span></div>
+                <button className="counter-button" onClick={() => addFoodToDay(food)}>+</button>
+              </div>
+            )) : <div className="empty-state">Dodaj pierwszy zapisany produkt.</div>}
+          </div>
+        </section>
+
+        <section className="tasks-section" style={{ marginTop: 16 }}>
+          <div className="section-heading"><div><p className="eyebrow">DZISIAJ</p><h2>Zjedzone</h2></div><span>{nutritionDay.length}</span></div>
+          <div className="tasks">
+            {nutritionDay.length ? nutritionDay.map((entry) => (
+              <div className="task" key={entry.id}>
+                <div className="task-icon">{entry.emoji}</div>
+                <div className="task-content"><span className="task-title">{entry.name}</span><span className="task-description">{entry.grams} g • {entry.kcal} kcal • B {entry.protein} g • T {entry.fat} g • W {entry.carbs} g</span>{entry.unhealthy && <span className="task-category" style={{ color: '#ff7b7b' }}>⚠️ NIEZDROWE</span>}</div>
+                <button className="delete-button" onClick={() => removeFoodFromDay(entry.id)}>🗑️</button>
+              </div>
+            )) : <div className="empty-state">Jeszcze nic nie dodano.</div>}
+          </div>
+        </section>
+
+        {showNutritionProfile && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header"><div><p className="eyebrow">PROFIL KALORII</p><h2>Twoje dane</h2></div><button className="close-button" onClick={() => setShowNutritionProfile(false)}>×</button></div>
+              <label>Waga (kg)<input type="number" min="1" value={profileForm.weight} onChange={(e) => setProfileForm({ ...profileForm, weight: e.target.value })} placeholder="np. 75" /></label>
+              <label>Wzrost (cm)<input type="number" min="1" value={profileForm.height} onChange={(e) => setProfileForm({ ...profileForm, height: e.target.value })} placeholder="np. 180" /></label>
+              <label>Wiek<input type="number" min="1" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="np. 20" /></label>
+              <label>Płeć<select value={profileForm.sex} onChange={(e) => setProfileForm({ ...profileForm, sex: e.target.value })}><option value="male">Mężczyzna</option><option value="female">Kobieta</option></select></label>
+              <label>Aktywność<select value={profileForm.activity} onChange={(e) => setProfileForm({ ...profileForm, activity: Number(e.target.value) })}><option value="1.2">Siedząca</option><option value="1.375">Lekka</option><option value="1.55">Umiarkowana</option><option value="1.725">Duża</option><option value="1.9">Bardzo duża</option></select></label>
+              <label>Cel<select value={profileForm.goal} onChange={(e) => setProfileForm({ ...profileForm, goal: e.target.value })}><option value="gain">Chcę zrobić masę</option><option value="lose">Chcę schudnąć</option><option value="maintain">Chcę utrzymać wagę</option></select></label>
+              <label>Docelowa waga (kg)<input type="number" min="0" value={profileForm.targetWeight} onChange={(e) => setProfileForm({ ...profileForm, targetWeight: e.target.value })} placeholder="opcjonalnie" /></label>
+              <p className="date">To orientacyjny cel kaloryczny, nie porada medyczna.</p>
+              <button className="save-task-button" onClick={saveNutritionProfile}>Zapisz i policz kcal</button>
+            </div>
+          </div>
+        )}
+
+        {showFoodModal && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header"><div><p className="eyebrow">NOWY PRODUKT</p><h2>Zapisz jedzenie</h2></div><button className="close-button" onClick={() => setShowFoodModal(false)}>×</button></div>
+              <label>Nazwa<input value={foodForm.name} onChange={(e) => setFoodForm({ ...foodForm, name: e.target.value })} placeholder="np. Jajecznica" /></label>
+              <label>Emoji<input value={foodForm.emoji} onChange={(e) => setFoodForm({ ...foodForm, emoji: e.target.value })} placeholder="🍳" /></label>
+              <label>Domyślna porcja (g)<input type="number" min="1" value={foodForm.grams} onChange={(e) => setFoodForm({ ...foodForm, grams: e.target.value })} /></label>
+              <p className="date">Wartości poniżej podaj na 100 g.</p>
+              <div className="tier-form-grid">
+                <label>Kcal<input type="number" min="0" value={foodForm.kcal} onChange={(e) => setFoodForm({ ...foodForm, kcal: e.target.value })} /></label>
+                <label>Białko<input type="number" min="0" step="0.1" value={foodForm.protein} onChange={(e) => setFoodForm({ ...foodForm, protein: e.target.value })} /></label>
+                <label>Tłuszcz<input type="number" min="0" step="0.1" value={foodForm.fat} onChange={(e) => setFoodForm({ ...foodForm, fat: e.target.value })} /></label>
+              </div>
+              <div className="tier-form-grid">
+                <label>Węgle<input type="number" min="0" step="0.1" value={foodForm.carbs} onChange={(e) => setFoodForm({ ...foodForm, carbs: e.target.value })} /></label>
+                <label>Cukier<input type="number" min="0" step="0.1" value={foodForm.sugar} onChange={(e) => setFoodForm({ ...foodForm, sugar: e.target.value })} /></label>
+              </div>
+              <label className="important-toggle"><input type="checkbox" checked={foodForm.favorite} onChange={(e) => setFoodForm({ ...foodForm, favorite: e.target.checked })} /><span>Dodaj do szybkich produktów</span></label>
+              <button className="save-task-button" onClick={saveFood}>Zapisz produkt</button>
+            </div>
+          </div>
+        )}
+      </section>
+    )
+  }
+
   const renderSettings = () => (
     <section className="settings-section">
       <div className="history-header">
@@ -1823,6 +2091,7 @@ function App() {
   if (activePage === 'settings') content = renderSettings()
   if (activePage === 'profile') content = renderProfile()
   if (activePage === 'goals') content = renderGoals()
+  if (activePage === 'nutrition') content = renderNutrition()
 
   return (
     <div className={`app ui-scale-${uiScale}`}>
@@ -1859,7 +2128,7 @@ function App() {
           <button className={`nav-item ${activePage === 'today' ? 'active' : ''}`} onClick={() => setActivePage('today')}><span>🏠</span><small>Główna</small></button>
           <button className={`nav-item ${activePage === 'categories' || ['youtube', 'health', 'sport', 'category-Nauka', 'category-Praca', 'category-Inne'].includes(activePage) ? 'active' : ''}`} onClick={() => setActivePage('categories')}><span>🗂️</span><small>Kategorie</small></button>
           <button className={`nav-item ${activePage === 'profile' ? 'active' : ''}`} onClick={() => setActivePage('profile')}><span>👤</span><small>Profil</small></button>
-          <button className={`nav-item ${activePage === 'stats' ? 'active' : ''}`} onClick={() => setActivePage('stats')}><span>📊</span><small>Statystyki</small></button>
+          <button className={`nav-item ${activePage === 'nutrition' ? 'active' : ''}`} onClick={() => setActivePage('nutrition')}><span>🍽️</span><small>Kcal</small></button>
           <button className={`nav-item ${['more', 'weekly', 'badges', 'ranks', 'history', 'settings', 'goals'].includes(activePage) ? 'active' : ''}`} onClick={() => setActivePage('more')}><span>•••</span><small>Więcej</small></button>
         </nav>
       </main>
