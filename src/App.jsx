@@ -226,12 +226,10 @@ const NUTRITION_PROFILE_KEY = 'nutrition-profile-v1'
 const NUTRITION_FOODS_KEY = 'nutrition-foods-v1'
 const NUTRITION_DAY_PREFIX = 'nutrition-day-v1-'
 
-const DEFAULT_FOODS = [
-  { id: 'egg-scramble', name: 'Jajecznica', emoji: '🍳', grams: 200, kcal: 196, protein: 12.6, fat: 15, carbs: 1.5, sugar: 0.7, favorite: true },
-  { id: 'banana', name: 'Banan', emoji: '🍌', grams: 120, kcal: 107, protein: 1.3, fat: 0.4, carbs: 27.4, sugar: 14.4, favorite: false },
-  { id: 'chicken', name: 'Pierś z kurczaka', emoji: '🍗', grams: 150, kcal: 248, protein: 46.5, fat: 5.4, carbs: 0, sugar: 0, favorite: false },
-  { id: 'rice', name: 'Ryż gotowany', emoji: '🍚', grams: 200, kcal: 260, protein: 5.4, fat: 0.6, carbs: 56.4, sugar: 0.2, favorite: false },
-]
+// Nowa aplikacja startuje bez gotowych produktów.
+// Dodajesz własne jedzenie przez przycisk „+”, a zapisane produkty
+// później można dodawać jednym kliknięciem.
+const DEFAULT_FOODS = []
 
 function calculateCalorieTarget(profile) {
   if (!profile?.weight || !profile?.height || !profile?.age) return 0
@@ -1140,7 +1138,9 @@ function App() {
           <p className="date">{getDateLabel(todayKey)}</p>
         </div>
 
-        <div className="header-stats">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+          <button className="add-task-button" onClick={openAddTask}>＋ Dodaj zadanie</button>
+          <div className="header-stats">
           <div className="mini-stat">
             <span>🔥</span>
             <strong>{currentStreak}</strong>
@@ -1150,6 +1150,7 @@ function App() {
             <span>⚡</span>
             <strong>{totalXp}</strong>
             <small>XP</small>
+          </div>
           </div>
         </div>
       </header>
@@ -1208,11 +1209,23 @@ function App() {
             <p className="eyebrow">PRIORYTET</p>
             <h2>Najważniejsze na dziś</h2>
           </div>
-          <span>{mainTasks.length}/5</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>{mainTasks.length}/5</span>
+            <button className="add-task-button" onClick={openAddTask}>＋</button>
+          </div>
         </div>
 
         <div className="tasks">
-          {mainTasks.length ? mainTasks.map(renderTaskCard) : <div className="empty-state">Dodaj swoje pierwsze zadania.</div>}
+          {mainTasks.length
+            ? mainTasks.map(renderTaskCard)
+            : (
+              <div className="empty-state">
+                <div style={{ fontSize: 34, marginBottom: 8 }}>＋</div>
+                <strong>Nie masz jeszcze zadań na głównej.</strong>
+                <div style={{ marginTop: 8 }}>Dodaj swoje pierwsze zadanie.</div>
+                <button className="save-task-button" style={{ marginTop: 14 }} onClick={openAddTask}>＋ Dodaj zadanie</button>
+              </div>
+            )}
         </div>
       </section>
     </>
@@ -1635,12 +1648,34 @@ function App() {
         {nutritionMessage && <div className="day-status" style={{ marginBottom: 16 }}><span className="day-status-icon">💬</span><div><strong>{nutritionMessage}</strong></div></div>}
 
         <section className="tasks-section">
-          <div className="section-heading"><div><p className="eyebrow">SZYBKIE DODAWANIE</p><h2>Moje produkty</h2></div><button className="add-task-button" onClick={() => setShowFoodModal(true)}>+ Dodaj</button></div>
+          <div className="section-heading">
+            <div><p className="eyebrow">JEDZENIE</p><h2>Dodaj kcal</h2></div>
+            <span>{nutritionDay.length} dziś</span>
+          </div>
+
+          <button
+            className="settings-block"
+            style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, border: '1px dashed rgba(255,255,255,.18)' }}
+            onClick={() => setShowFoodModal(true)}
+          >
+            <span style={{ display: 'block', fontSize: 42, lineHeight: 1, marginBottom: 8 }}>＋</span>
+            <strong style={{ display: 'block', fontSize: 18 }}>Dodaj jedzenie</strong>
+            <small style={{ display: 'block', marginTop: 5 }}>Wpisz nazwę, gramy, kcal i makro. Możesz zapisać je na przyszłość.</small>
+          </button>
+
+          <div className="section-heading">
+            <div><p className="eyebrow">SZYBKIE DODAWANIE</p><h2>Zapisane produkty</h2></div>
+            <button className="add-task-button" onClick={() => setShowFoodModal(true)}>＋</button>
+          </div>
           <div className="tasks">
             {favorites.length ? favorites.map((food) => (
               <div className="task" key={food.id}>
                 <div className="task-icon">{food.emoji}</div>
-                <div className="task-content"><span className="task-title">{food.name}</span><span className="task-description">{food.grams} g • {foodMacrosForGrams(food, food.grams).kcal} kcal</span></div>
+                <div className="task-content">
+                  <span className="task-title">{food.name}</span>
+                  <span className="task-description">{food.grams} g • {foodMacrosForGrams(food, food.grams).kcal} kcal</span>
+                  {isFoodUnhealthy(food) && <span className="task-category" style={{ color: '#ff7b7b' }}>⚠️ DUŻO TŁUSZCZU/CUKRU</span>}
+                </div>
                 <button className="counter-button" onClick={() => addFoodToDay(food)}>+</button>
               </div>
             )) : <div className="empty-state">Dodaj pierwszy zapisany produkt.</div>}
@@ -1684,7 +1719,7 @@ function App() {
               <label>Nazwa<input value={foodForm.name} onChange={(e) => setFoodForm({ ...foodForm, name: e.target.value })} placeholder="np. Jajecznica" /></label>
               <label>Emoji<input value={foodForm.emoji} onChange={(e) => setFoodForm({ ...foodForm, emoji: e.target.value })} placeholder="🍳" /></label>
               <label>Domyślna porcja (g)<input type="number" min="1" value={foodForm.grams} onChange={(e) => setFoodForm({ ...foodForm, grams: e.target.value })} /></label>
-              <p className="date">Wartości poniżej podaj na 100 g.</p>
+              <p className="date">Wartości poniżej podaj na 100 g. Jeśli tłuszcz ≥ 20 g lub cukier ≥ 10 g / 100 g, przy dodaniu pokażę ostrzeżenie „NIEZDROWE”, ale jedzenie nadal zostanie dodane.</p>
               <div className="tier-form-grid">
                 <label>Kcal<input type="number" min="0" value={foodForm.kcal} onChange={(e) => setFoodForm({ ...foodForm, kcal: e.target.value })} /></label>
                 <label>Białko<input type="number" min="0" step="0.1" value={foodForm.protein} onChange={(e) => setFoodForm({ ...foodForm, protein: e.target.value })} /></label>
