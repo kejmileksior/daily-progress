@@ -318,6 +318,8 @@ function normalizeTask(task = {}) {
     xp,
     bonusXp,
     important: typeof task.important === 'boolean' ? task.important : true,
+    // Tylko zadania dodane przez użytkownika trafiają na główną stronę.
+    showOnMain: typeof task.showOnMain === 'boolean' ? task.showOnMain : false,
   }
 }
 
@@ -484,6 +486,7 @@ function App() {
     xp: 25,
     bonusXp: 50,
     important: true,
+    showOnMain: true,
     days: [...defaultDays],
   }
 
@@ -840,6 +843,7 @@ function App() {
       xp: Math.max(5, Number(taskForm.xp) || 25),
       bonusXp: taskForm.type === 'counter' ? Math.max(Number(taskForm.xp) || 25, Number(taskForm.bonusXp) || 50) : Math.max(5, Number(taskForm.xp) || 25),
       important: Boolean(taskForm.important),
+      showOnMain: true,
       value: 0,
       days: taskForm.days.length ? taskForm.days : [...defaultDays],
     })
@@ -1074,8 +1078,10 @@ function App() {
     awardImportantBonusIfReady(nextTasks)
   }
 
-  const importantTasks = tasks.filter((task) => task.important)
-  const mainTasks = [...importantTasks, ...tasks.filter((task) => !task.important)]
+  // Główna strona zaczyna się pusta. Pokazujemy tutaj wyłącznie zadania,
+  // które użytkownik świadomie dodał do sekcji „Najważniejsze na dziś”.
+  const mainTasks = tasks
+    .filter((task) => task.showOnMain === true)
     .slice(0, 5)
 
   const renderTaskCard = (task) => {
@@ -1210,8 +1216,7 @@ function App() {
             <h2>Najważniejsze na dziś</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>{mainTasks.length}/5</span>
-            <button className="add-task-button" onClick={openAddTask}>＋</button>
+            <button className="add-task-button" onClick={openAddTask} aria-label="Dodaj najważniejsze zadanie">＋</button>
           </div>
         </div>
 
