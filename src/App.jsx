@@ -1614,105 +1614,392 @@ function App() {
 
   const renderNutrition = () => {
     const favorites = nutritionFoods.filter((food) => food.favorite)
+    const caloriePercent = calorieTarget
+      ? Math.min(100, Math.round((nutritionTotals.kcal / calorieTarget) * 100))
+      : 0
+    const remainingExact = calorieTarget
+      ? calorieTarget - nutritionTotals.kcal
+      : 0
+    const calorieStatus = !calorieTarget
+      ? 'Ustaw swój cel kcal, żeby śledzić dzienny progres.'
+      : remainingExact > 0
+        ? `Zostało Ci ${remainingExact.toLocaleString('pl-PL')} kcal do celu.`
+        : remainingExact === 0
+          ? 'Idealnie trafiony cel kcal. 🔥'
+          : `Jesteś ${Math.abs(remainingExact).toLocaleString('pl-PL')} kcal ponad celem.`
+
     return (
-      <section className="stats-section" style={{ paddingBottom: 100 }}>
+      <section className="stats-section" style={{ paddingBottom: 110 }}>
         <div className="history-header">
           <p className="eyebrow">ODŻYWIANIE</p>
           <h1>Kalorie 🍽️</h1>
-          <p className="date">Dzisiaj • {nutritionTotals.kcal.toLocaleString('pl-PL')} / {calorieTarget ? calorieTarget.toLocaleString('pl-PL') : '—'} kcal</p>
+          <p className="date">
+            Dzisiaj • {nutritionTotals.kcal.toLocaleString('pl-PL')} / {calorieTarget ? calorieTarget.toLocaleString('pl-PL') : '—'} kcal
+          </p>
         </div>
 
-        {!nutritionProfile ? (
+        {/* Duży, czytelny licznik kcal — główny punkt strony. */}
+        <section
+          className="progress-card"
+          style={{
+            marginBottom: 16,
+            padding: 22,
+            overflow: 'hidden',
+            position: 'relative',
+            background: 'linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025))',
+            border: '1px solid rgba(255,255,255,.10)',
+            boxShadow: '0 18px 50px rgba(0,0,0,.18)',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              width: 180,
+              height: 180,
+              right: -80,
+              top: -90,
+              borderRadius: '50%',
+              background: 'rgba(255,185,80,.10)',
+              pointerEvents: 'none',
+            }}
+          />
+
+          <div className="progress-top" style={{ position: 'relative', zIndex: 1 }}>
+            <div>
+              <span className="progress-title">DZISIAJ</span>
+              <strong style={{ fontSize: 34, letterSpacing: '-.03em', display: 'block', marginTop: 4 }}>
+                {nutritionTotals.kcal.toLocaleString('pl-PL')} kcal
+              </strong>
+              <span style={{ display: 'block', marginTop: 5, opacity: .72 }}>
+                Cel: {calorieTarget ? calorieTarget.toLocaleString('pl-PL') : '—'} kcal
+              </span>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <span className="percentage" style={{ fontSize: 28 }}>
+                {caloriePercent}%
+              </span>
+              <small style={{ display: 'block', opacity: .65, marginTop: 3 }}>
+                dziennego celu
+              </small>
+            </div>
+          </div>
+
+          <div className="progress-bar" style={{ marginTop: 18, height: 13, position: 'relative', zIndex: 1 }}>
+            <div
+              className="progress-fill"
+              style={{
+                width: `${caloriePercent}%`,
+                transition: 'width .35s ease',
+              }}
+            />
+          </div>
+
+          <div
+            className="day-status"
+            style={{
+              marginTop: 14,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            <span className="day-status-icon">🔥</span>
+            <div>
+              <strong>{calorieStatus}</strong>
+              <span>
+                {calorieTarget
+                  ? (nutritionProfile?.goal === 'gain'
+                    ? 'Cel ustawiony pod masę.'
+                    : nutritionProfile?.goal === 'lose'
+                      ? 'Cel ustawiony pod redukcję.'
+                      : 'Cel ustawiony pod utrzymanie wagi.')
+                  : 'Najpierw ustaw profil kalorii.'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+            {nutritionProfile && (
+              <button
+                className="edit-button"
+                onClick={() => setShowNutritionProfile(true)}
+              >
+                ✏️ Zmień dane
+              </button>
+            )}
+            {!nutritionProfile && (
+              <button
+                className="save-task-button"
+                onClick={() => setShowNutritionProfile(true)}
+              >
+                Ustaw profil kcal
+              </button>
+            )}
+          </div>
+        </section>
+
+        {!nutritionProfile && (
           <div className="settings-block" style={{ marginBottom: 16 }}>
             <h2>Ustaw swoje zapotrzebowanie</h2>
-            <p>Podaj wagę, wzrost, wiek, aktywność i cel. Aplikacja policzy orientacyjne dzienne kcal.</p>
-            <button className="save-task-button" onClick={() => setShowNutritionProfile(true)}>Ustaw profil kcal</button>
-          </div>
-        ) : (
-          <div className="progress-card" style={{ marginBottom: 16 }}>
-            <div className="progress-top">
-              <div><span className="progress-title">DZISIAJ</span><strong>{nutritionTotals.kcal.toLocaleString('pl-PL')} kcal</strong></div>
-              <span className="percentage">{calorieTarget ? Math.min(100, Math.round((nutritionTotals.kcal / calorieTarget) * 100)) : 0}%</span>
-            </div>
-            <div className="progress-bar"><div className="progress-fill" style={{ width: `${calorieTarget ? Math.min(100, (nutritionTotals.kcal / calorieTarget) * 100) : 0}%` }} /></div>
-            <div className="day-status">
-              <span className="day-status-icon">🔥</span>
-              <div><strong>Zostało Ci {caloriesLeft.toLocaleString('pl-PL')} kcal</strong><span>Cel: {calorieTarget.toLocaleString('pl-PL')} kcal • {nutritionProfile.goal === 'gain' ? 'masa' : nutritionProfile.goal === 'lose' ? 'redukcja' : 'utrzymanie'}</span></div>
-            </div>
-            <button className="edit-button" style={{ marginTop: 10 }} onClick={() => setShowNutritionProfile(true)}>✏️ Zmień dane</button>
+            <p>
+              Podaj wagę, wzrost, wiek, aktywność i cel. Aplikacja policzy
+              orientacyjne dzienne kcal.
+            </p>
           </div>
         )}
 
+        {/* Makro w osobnych, szybkich kafelkach. */}
         <div className="stats-grid" style={{ marginBottom: 16 }}>
-          <div className="stat-card"><span>🥩</span><strong>{nutritionTotals.protein.toFixed(1)} g</strong><small>Białko</small></div>
-          <div className="stat-card"><span>🥑</span><strong>{nutritionTotals.fat.toFixed(1)} g</strong><small>Tłuszcz</small></div>
-          <div className="stat-card"><span>🍞</span><strong>{nutritionTotals.carbs.toFixed(1)} g</strong><small>Węgle</small></div>
-          <div className="stat-card"><span>🍬</span><strong>{nutritionTotals.sugar.toFixed(1)} g</strong><small>Cukier</small></div>
+          <div className="stat-card">
+            <span>🥩</span>
+            <strong>{nutritionTotals.protein.toFixed(1)} g</strong>
+            <small>Białko</small>
+          </div>
+          <div className="stat-card">
+            <span>🥑</span>
+            <strong>{nutritionTotals.fat.toFixed(1)} g</strong>
+            <small>Tłuszcz</small>
+          </div>
+          <div className="stat-card">
+            <span>🍞</span>
+            <strong>{nutritionTotals.carbs.toFixed(1)} g</strong>
+            <small>Węgle</small>
+          </div>
+          <div className="stat-card">
+            <span>🍬</span>
+            <strong>{nutritionTotals.sugar.toFixed(1)} g</strong>
+            <small>Cukier</small>
+          </div>
         </div>
 
-        {nutritionMessage && <div className="day-status" style={{ marginBottom: 16 }}><span className="day-status-icon">💬</span><div><strong>{nutritionMessage}</strong></div></div>}
+        {nutritionMessage && (
+          <div className="day-status" style={{ marginBottom: 16 }}>
+            <span className="day-status-icon">💬</span>
+            <div>
+              <strong>{nutritionMessage}</strong>
+            </div>
+          </div>
+        )}
 
         <section className="tasks-section">
           <div className="section-heading">
-            <div><p className="eyebrow">JEDZENIE</p><h2>Dodaj kcal</h2></div>
+            <div>
+              <p className="eyebrow">JEDZENIE</p>
+              <h2>Dodaj kcal</h2>
+            </div>
             <span>{nutritionDay.length} dziś</span>
           </div>
 
           <button
             className="settings-block"
-            style={{ width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 12, border: '1px dashed rgba(255,255,255,.18)' }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              cursor: 'pointer',
+              marginBottom: 14,
+              border: '1px dashed rgba(255,255,255,.18)',
+              padding: 20,
+              transition: 'transform .18s ease, border-color .18s ease',
+            }}
             onClick={() => setShowFoodModal(true)}
           >
-            <span style={{ display: 'block', fontSize: 42, lineHeight: 1, marginBottom: 8 }}>＋</span>
-            <strong style={{ display: 'block', fontSize: 18 }}>Dodaj jedzenie</strong>
-            <small style={{ display: 'block', marginTop: 5 }}>Wpisz nazwę, gramy, kcal i makro. Możesz zapisać je na przyszłość.</small>
+            <span style={{ display: 'block', fontSize: 44, lineHeight: 1, marginBottom: 9 }}>＋</span>
+            <strong style={{ display: 'block', fontSize: 19 }}>Dodaj jedzenie</strong>
+            <small style={{ display: 'block', marginTop: 6, lineHeight: 1.5 }}>
+              Wpisz nazwę, gramy, kcal i makro. Zapisz produkt, żeby później
+              dodawać go jednym kliknięciem.
+            </small>
           </button>
 
           <div className="section-heading">
-            <div><p className="eyebrow">SZYBKIE DODAWANIE</p><h2>Zapisane produkty</h2></div>
+            <div>
+              <p className="eyebrow">SZYBKIE DODAWANIE</p>
+              <h2>Zapisane produkty</h2>
+            </div>
             <button className="add-task-button" onClick={() => setShowFoodModal(true)}>＋</button>
           </div>
+
           <div className="tasks">
             {favorites.length ? favorites.map((food) => (
               <div className="task" key={food.id}>
                 <div className="task-icon">{food.emoji}</div>
                 <div className="task-content">
                   <span className="task-title">{food.name}</span>
-                  <span className="task-description">{food.grams} g • {foodMacrosForGrams(food, food.grams).kcal} kcal</span>
-                  {isFoodUnhealthy(food) && <span className="task-category" style={{ color: '#ff7b7b' }}>⚠️ DUŻO TŁUSZCZU/CUKRU</span>}
+                  <span className="task-description">
+                    {food.grams} g • {foodMacrosForGrams(food, food.grams).kcal} kcal
+                  </span>
+                  <span style={{ display: 'block', marginTop: 5, fontSize: 12, opacity: .62 }}>
+                    B {foodMacrosForGrams(food, food.grams).protein} g •
+                    {' '}T {foodMacrosForGrams(food, food.grams).fat} g •
+                    {' '}W {foodMacrosForGrams(food, food.grams).carbs} g
+                  </span>
+                  {isFoodUnhealthy(food) && (
+                    <span className="task-category" style={{ color: '#ff7b7b' }}>
+                      ⚠️ DUŻO TŁUSZCZU/CUKRU
+                    </span>
+                  )}
                 </div>
-                <button className="counter-button" onClick={() => addFoodToDay(food)}>+</button>
+                <button
+                  className="counter-button"
+                  aria-label={`Dodaj ${food.name}`}
+                  onClick={() => addFoodToDay(food)}
+                >
+                  +
+                </button>
               </div>
-            )) : <div className="empty-state">Dodaj pierwszy zapisany produkt.</div>}
+            )) : (
+              <div className="empty-state">
+                Dodaj pierwszy zapisany produkt.
+              </div>
+            )}
           </div>
         </section>
 
         <section className="tasks-section" style={{ marginTop: 16 }}>
-          <div className="section-heading"><div><p className="eyebrow">DZISIAJ</p><h2>Zjedzone</h2></div><span>{nutritionDay.length}</span></div>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">DZISIAJ</p>
+              <h2>Zjedzone</h2>
+            </div>
+            <span>{nutritionDay.length}</span>
+          </div>
+
           <div className="tasks">
             {nutritionDay.length ? nutritionDay.map((entry) => (
               <div className="task" key={entry.id}>
                 <div className="task-icon">{entry.emoji}</div>
-                <div className="task-content"><span className="task-title">{entry.name}</span><span className="task-description">{entry.grams} g • {entry.kcal} kcal • B {entry.protein} g • T {entry.fat} g • W {entry.carbs} g</span>{entry.unhealthy && <span className="task-category" style={{ color: '#ff7b7b' }}>⚠️ NIEZDROWE</span>}</div>
-                <button className="delete-button" onClick={() => removeFoodFromDay(entry.id)}>🗑️</button>
+                <div className="task-content">
+                  <span className="task-title">{entry.name}</span>
+                  <span className="task-description">
+                    {entry.grams} g • {entry.kcal} kcal • B {entry.protein} g • T {entry.fat} g • W {entry.carbs} g
+                  </span>
+                  {entry.unhealthy && (
+                    <span className="task-category" style={{ color: '#ff7b7b' }}>
+                      ⚠️ NIEZDROWE
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="delete-button"
+                  aria-label={`Usuń ${entry.name}`}
+                  onClick={() => removeFoodFromDay(entry.id)}
+                >
+                  🗑️
+                </button>
               </div>
-            )) : <div className="empty-state">Jeszcze nic nie dodano.</div>}
+            )) : (
+              <div className="empty-state">Jeszcze nic nie dodano.</div>
+            )}
           </div>
         </section>
 
         {showNutritionProfile && (
           <div className="modal-overlay">
             <div className="modal">
-              <div className="modal-header"><div><p className="eyebrow">PROFIL KALORII</p><h2>Twoje dane</h2></div><button className="close-button" onClick={() => setShowNutritionProfile(false)}>×</button></div>
-              <label>Waga (kg)<input type="number" min="1" value={profileForm.weight} onChange={(e) => setProfileForm({ ...profileForm, weight: e.target.value })} placeholder="np. 75" /></label>
-              <label>Wzrost (cm)<input type="number" min="1" value={profileForm.height} onChange={(e) => setProfileForm({ ...profileForm, height: e.target.value })} placeholder="np. 180" /></label>
-              <label>Wiek<input type="number" min="1" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} placeholder="np. 20" /></label>
-              <label>Płeć<select value={profileForm.sex} onChange={(e) => setProfileForm({ ...profileForm, sex: e.target.value })}><option value="male">Mężczyzna</option><option value="female">Kobieta</option></select></label>
-              <label>Aktywność<select value={profileForm.activity} onChange={(e) => setProfileForm({ ...profileForm, activity: Number(e.target.value) })}><option value="1.2">Siedząca</option><option value="1.375">Lekka</option><option value="1.55">Umiarkowana</option><option value="1.725">Duża</option><option value="1.9">Bardzo duża</option></select></label>
-              <label>Cel<select value={profileForm.goal} onChange={(e) => setProfileForm({ ...profileForm, goal: e.target.value })}><option value="gain">Chcę zrobić masę</option><option value="lose">Chcę schudnąć</option><option value="maintain">Chcę utrzymać wagę</option></select></label>
-              <label>Docelowa waga (kg)<input type="number" min="0" value={profileForm.targetWeight} onChange={(e) => setProfileForm({ ...profileForm, targetWeight: e.target.value })} placeholder="opcjonalnie" /></label>
-              <p className="date">To orientacyjny cel kaloryczny, nie porada medyczna.</p>
-              <button className="save-task-button" onClick={saveNutritionProfile}>Zapisz i policz kcal</button>
+              <div className="modal-header">
+                <div>
+                  <p className="eyebrow">PROFIL KALORII</p>
+                  <h2>Twoje dane</h2>
+                </div>
+                <button
+                  className="close-button"
+                  onClick={() => setShowNutritionProfile(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <label>
+                Waga (kg)
+                <input
+                  type="number"
+                  min="1"
+                  value={profileForm.weight}
+                  onChange={(e) => setProfileForm({ ...profileForm, weight: e.target.value })}
+                  placeholder="np. 75"
+                />
+              </label>
+
+              <label>
+                Wzrost (cm)
+                <input
+                  type="number"
+                  min="1"
+                  value={profileForm.height}
+                  onChange={(e) => setProfileForm({ ...profileForm, height: e.target.value })}
+                  placeholder="np. 180"
+                />
+              </label>
+
+              <label>
+                Wiek
+                <input
+                  type="number"
+                  min="1"
+                  value={profileForm.age}
+                  onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}
+                  placeholder="np. 20"
+                />
+              </label>
+
+              <label>
+                Płeć
+                <select
+                  value={profileForm.sex}
+                  onChange={(e) => setProfileForm({ ...profileForm, sex: e.target.value })}
+                >
+                  <option value="male">Mężczyzna</option>
+                  <option value="female">Kobieta</option>
+                </select>
+              </label>
+
+              <label>
+                Aktywność
+                <select
+                  value={profileForm.activity}
+                  onChange={(e) => setProfileForm({ ...profileForm, activity: Number(e.target.value) })}
+                >
+                  <option value="1.2">Siedząca</option>
+                  <option value="1.375">Lekka</option>
+                  <option value="1.55">Umiarkowana</option>
+                  <option value="1.725">Duża</option>
+                  <option value="1.9">Bardzo duża</option>
+                </select>
+              </label>
+
+              <label>
+                Cel
+                <select
+                  value={profileForm.goal}
+                  onChange={(e) => setProfileForm({ ...profileForm, goal: e.target.value })}
+                >
+                  <option value="gain">Chcę zrobić masę</option>
+                  <option value="lose">Chcę schudnąć</option>
+                  <option value="maintain">Chcę utrzymać wagę</option>
+                </select>
+              </label>
+
+              <label>
+                Docelowa waga (kg)
+                <input
+                  type="number"
+                  min="0"
+                  value={profileForm.targetWeight}
+                  onChange={(e) => setProfileForm({ ...profileForm, targetWeight: e.target.value })}
+                  placeholder="opcjonalnie"
+                />
+              </label>
+
+              <p className="date">
+                To orientacyjny cel kaloryczny, nie porada medyczna.
+              </p>
+
+              <button
+                className="save-task-button"
+                onClick={saveNutritionProfile}
+              >
+                Zapisz i policz kcal
+              </button>
             </div>
           </div>
         )}
@@ -1720,22 +2007,120 @@ function App() {
         {showFoodModal && (
           <div className="modal-overlay">
             <div className="modal">
-              <div className="modal-header"><div><p className="eyebrow">NOWY PRODUKT</p><h2>Zapisz jedzenie</h2></div><button className="close-button" onClick={() => setShowFoodModal(false)}>×</button></div>
-              <label>Nazwa<input value={foodForm.name} onChange={(e) => setFoodForm({ ...foodForm, name: e.target.value })} placeholder="np. Jajecznica" /></label>
-              <label>Emoji<input value={foodForm.emoji} onChange={(e) => setFoodForm({ ...foodForm, emoji: e.target.value })} placeholder="🍳" /></label>
-              <label>Domyślna porcja (g)<input type="number" min="1" value={foodForm.grams} onChange={(e) => setFoodForm({ ...foodForm, grams: e.target.value })} /></label>
-              <p className="date">Wartości poniżej podaj na 100 g. Jeśli tłuszcz ≥ 20 g lub cukier ≥ 10 g / 100 g, przy dodaniu pokażę ostrzeżenie „NIEZDROWE”, ale jedzenie nadal zostanie dodane.</p>
-              <div className="tier-form-grid">
-                <label>Kcal<input type="number" min="0" value={foodForm.kcal} onChange={(e) => setFoodForm({ ...foodForm, kcal: e.target.value })} /></label>
-                <label>Białko<input type="number" min="0" step="0.1" value={foodForm.protein} onChange={(e) => setFoodForm({ ...foodForm, protein: e.target.value })} /></label>
-                <label>Tłuszcz<input type="number" min="0" step="0.1" value={foodForm.fat} onChange={(e) => setFoodForm({ ...foodForm, fat: e.target.value })} /></label>
+              <div className="modal-header">
+                <div>
+                  <p className="eyebrow">NOWY PRODUKT</p>
+                  <h2>Zapisz jedzenie</h2>
+                </div>
+                <button
+                  className="close-button"
+                  onClick={() => setShowFoodModal(false)}
+                >
+                  ×
+                </button>
               </div>
+
+              <label>
+                Nazwa
+                <input
+                  value={foodForm.name}
+                  onChange={(e) => setFoodForm({ ...foodForm, name: e.target.value })}
+                  placeholder="np. Jajecznica"
+                />
+              </label>
+
+              <label>
+                Emoji
+                <input
+                  value={foodForm.emoji}
+                  onChange={(e) => setFoodForm({ ...foodForm, emoji: e.target.value })}
+                  placeholder="🍳"
+                />
+              </label>
+
+              <label>
+                Domyślna porcja (g)
+                <input
+                  type="number"
+                  min="1"
+                  value={foodForm.grams}
+                  onChange={(e) => setFoodForm({ ...foodForm, grams: e.target.value })}
+                />
+              </label>
+
+              <p className="date">
+                Wartości poniżej podaj na 100 g. Jeśli tłuszcz ≥ 20 g lub
+                cukier ≥ 10 g / 100 g, przy dodaniu pokażę ostrzeżenie
+                „NIEZDROWE”, ale jedzenie nadal zostanie dodane.
+              </p>
+
               <div className="tier-form-grid">
-                <label>Węgle<input type="number" min="0" step="0.1" value={foodForm.carbs} onChange={(e) => setFoodForm({ ...foodForm, carbs: e.target.value })} /></label>
-                <label>Cukier<input type="number" min="0" step="0.1" value={foodForm.sugar} onChange={(e) => setFoodForm({ ...foodForm, sugar: e.target.value })} /></label>
+                <label>
+                  Kcal
+                  <input
+                    type="number"
+                    min="0"
+                    value={foodForm.kcal}
+                    onChange={(e) => setFoodForm({ ...foodForm, kcal: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Białko
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={foodForm.protein}
+                    onChange={(e) => setFoodForm({ ...foodForm, protein: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Tłuszcz
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={foodForm.fat}
+                    onChange={(e) => setFoodForm({ ...foodForm, fat: e.target.value })}
+                  />
+                </label>
               </div>
-              <label className="important-toggle"><input type="checkbox" checked={foodForm.favorite} onChange={(e) => setFoodForm({ ...foodForm, favorite: e.target.checked })} /><span>Dodaj do szybkich produktów</span></label>
-              <button className="save-task-button" onClick={saveFood}>Zapisz produkt</button>
+
+              <div className="tier-form-grid">
+                <label>
+                  Węgle
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={foodForm.carbs}
+                    onChange={(e) => setFoodForm({ ...foodForm, carbs: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Cukier
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={foodForm.sugar}
+                    onChange={(e) => setFoodForm({ ...foodForm, sugar: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <label className="important-toggle">
+                <input
+                  type="checkbox"
+                  checked={foodForm.favorite}
+                  onChange={(e) => setFoodForm({ ...foodForm, favorite: e.target.checked })}
+                />
+                <span>Dodaj do szybkich produktów</span>
+              </label>
+
+              <button className="save-task-button" onClick={saveFood}>
+                Zapisz produkt
+              </button>
             </div>
           </div>
         )}
